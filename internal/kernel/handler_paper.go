@@ -10,8 +10,10 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/copyleftdev/kalshi-kernel/internal/config"
 	"github.com/copyleftdev/kalshi-kernel/internal/gen/mcptools"
 	"github.com/copyleftdev/kalshi-kernel/internal/kernel/ledger"
+	"github.com/copyleftdev/kalshi-kernel/internal/kernel/live"
 	"github.com/copyleftdev/kalshi-kernel/internal/kernel/marketdata"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -52,6 +54,9 @@ func (handler *Handler) GetPortfolio(
 	if input.Product != "event" && input.Product != "perp" {
 		return handler.respondError("get_portfolio", errors.New("product must be event or perp"))
 	}
+	if handler.config.Mode == config.ModeLive {
+		return handler.livePortfolio(ctx)
+	}
 	cash, positions, journal := handler.paperLedger().Snapshot()
 	data := map[string]any{
 		"product":      input.Product,
@@ -61,6 +66,41 @@ func (handler *Handler) GetPortfolio(
 		"note":         "in-memory paper book; resets when the kernel process exits",
 	}
 	return handler.respond(simulatedEnvelope(data))
+}
+
+// liveClient lazily builds the process-wide authenticated account client.
+// The private key is loaded from config once; it never leaves this struct.
+func (handler *Handler) liveClient() (*live.Client, error) {
+	if handler.live == nil {
+		client, err := live.New(handler.config.APIKeyID, handler.config.PrivateKeyPath)
+		if err != nil {
+			return nil, err
+		}
+		handler.live = client
+	}
+	return handler.live, nil
+}
+
+// livePortfolio serves get_portfolio in live mode from the signed
+// portfolio endpoints. Read-only: no order-write path exists here.
+func (handler *Handler) livePortfolio(ctx context.Context) (*mcp.CallToolResult, mcptools.Response, error) {
+	client, err := handler.liveClient()
+	if err != nil {
+		return handler.respondError("get_portfolio", err)
+	}
+	p, err := client.GetPortfolio(ctx)
+	if err != nil {
+		return handler.respondError("get_portfolio", err)
+	}
+	data := map[string]any{
+		"product":   "event",
+		"balance":   p.Balance,
+		"positions": p.Positions,
+		"orders":    p.Orders,
+		"fills":     p.Fills,
+		"simulated": false,
+	}
+	return handler.respond(data)
 }
 
 // bookTouch returns the top-of-book price/size for the requested side,

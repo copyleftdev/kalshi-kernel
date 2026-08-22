@@ -6,6 +6,7 @@ import (
 	"github.com/copyleftdev/kalshi-kernel/internal/config"
 	"github.com/copyleftdev/kalshi-kernel/internal/gen/mcptools"
 	"github.com/copyleftdev/kalshi-kernel/internal/kernel/ledger"
+	"github.com/copyleftdev/kalshi-kernel/internal/kernel/live"
 	"github.com/copyleftdev/kalshi-kernel/internal/kernel/marketdata"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -22,6 +23,10 @@ type Handler struct {
 
 	// paper is the lazily-initialized simulated book (paper mode only).
 	paper *ledger.Ledger
+
+	// live is the lazily-initialized signed account client (live mode
+	// only). Stage 1: portfolio reads; no write path exists.
+	live *live.Client
 }
 
 func New(config config.Config) *Handler {
