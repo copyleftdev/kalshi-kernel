@@ -497,6 +497,113 @@ func (c *Client) GetEventTrades(ctx context.Context, opt TradesOptions) (*Trades
 	return page, nil
 }
 
+// LastQuote is a compact live pricing snapshot for one market. Every
+// price/size field is the fixed-point string exactly as upstream emits it.
+type LastQuote struct {
+	Ticker string `json:"ticker"`
+	Status string `json:"status,omitempty"`
+
+	// Event-contract fields (empty for perps).
+	LastPriceDollars string `json:"last_price_dollars,omitempty"`
+	YesBidDollars    string `json:"yes_bid_dollars,omitempty"`
+	YesAskDollars    string `json:"yes_ask_dollars,omitempty"`
+	YesBidSizeFP     string `json:"yes_bid_size_fp,omitempty"`
+	YesAskSizeFP     string `json:"yes_ask_size_fp,omitempty"`
+	NoBidDollars     string `json:"no_bid_dollars,omitempty"`
+	NoAskDollars     string `json:"no_ask_dollars,omitempty"`
+
+	// Perpetuals fields (empty for event contracts).
+	MarkPriceDollars       string `json:"mark_price_dollars,omitempty"`
+	BidDollars             string `json:"bid_dollars,omitempty"`
+	AskDollars             string `json:"ask_dollars,omitempty"`
+	SettlementMarkDollars  string `json:"settlement_mark_price_dollars,omitempty"`
+	LiquidationMarkDollars string `json:"liquidation_mark_price_dollars,omitempty"`
+
+	Volume24hFP string `json:"volume_24h_fp,omitempty"`
+}
+
+// GetEventLastQuote fetches the compact live pricing snapshot for one
+// event-contract market via GET /markets/{ticker}.
+func (c *Client) GetEventLastQuote(ctx context.Context, ticker string) (*LastQuote, error) {
+	if ticker == "" {
+		return nil, typed(errBadInput, "ticker is required")
+	}
+	var raw struct {
+		Market struct {
+			Ticker       string `json:"ticker"`
+			Status       string `json:"status"`
+			LastPrice    string `json:"last_price_dollars"`
+			YesBid       string `json:"yes_bid_dollars"`
+			YesAsk       string `json:"yes_ask_dollars"`
+			YesBidSizeFP string `json:"yes_bid_size_fp"`
+			YesAskSizeFP string `json:"yes_ask_size_fp"`
+			NoBid        string `json:"no_bid_dollars"`
+			NoAsk        string `json:"no_ask_dollars"`
+			Volume24hFP  string `json:"volume_24h_fp"`
+		} `json:"market"`
+	}
+	path := "/trade-api/v2/markets/" + url.PathEscape(ticker)
+	if err := get(ctx, c, path, nil, &raw); err != nil {
+		return nil, err
+	}
+	m := raw.Market
+	return &LastQuote{
+		Ticker:           m.Ticker,
+		Status:           m.Status,
+		LastPriceDollars: m.LastPrice,
+		YesBidDollars:    m.YesBid,
+		YesAskDollars:    m.YesAsk,
+		YesBidSizeFP:     m.YesBidSizeFP,
+		YesAskSizeFP:     m.YesAskSizeFP,
+		NoBidDollars:     m.NoBid,
+		NoAskDollars:     m.NoAsk,
+		Volume24hFP:      m.Volume24hFP,
+	}, nil
+}
+
+// GetMarginLastQuote fetches the compact live pricing snapshot for one
+// perpetuals market via GET /margin/markets.
+func (c *Client) GetMarginLastQuote(ctx context.Context, ticker string) (*LastQuote, error) {
+	if ticker == "" {
+		return nil, typed(errBadInput, "ticker is required")
+	}
+	q := url.Values{}
+	q.Set("tickers", ticker)
+	var raw struct {
+		Markets []struct {
+			Ticker         string      `json:"ticker"`
+			Status         string      `json:"status"`
+			Price          json.Number `json:"price"`
+			Bid            json.Number `json:"bid"`
+			Ask            json.Number `json:"ask"`
+			SettlementMark struct {
+				Price json.Number `json:"price"`
+			} `json:"settlement_mark_price"`
+			LiquidationMark struct {
+				Price json.Number `json:"price"`
+			} `json:"liquidation_mark_price"`
+			Volume24h json.Number `json:"volume_24h"`
+		} `json:"markets"`
+	}
+	if err := get(ctx, c, "/trade-api/v2/margin/markets", q, &raw); err != nil {
+		return nil, err
+	}
+	if len(raw.Markets) == 0 {
+		return nil, typed(errUpstream, "perp market not found: "+ticker)
+	}
+	m := raw.Markets[0]
+	return &LastQuote{
+		Ticker:                 m.Ticker,
+		Status:                 m.Status,
+		MarkPriceDollars:       m.Price.String(),
+		BidDollars:             m.Bid.String(),
+		AskDollars:             m.Ask.String(),
+		SettlementMarkDollars:  m.SettlementMark.Price.String(),
+		LiquidationMarkDollars: m.LiquidationMark.Price.String(),
+		Volume24hFP:            m.Volume24h.String(),
+	}, nil
+}
+
 func setIfNotEmpty(q url.Values, key, val string) {
 	if val != "" {
 		q.Set(key, val)

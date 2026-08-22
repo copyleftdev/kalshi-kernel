@@ -180,6 +180,28 @@ tools:
           type: string
           description: Pagination cursor returned by a previous call.
 
+  - name: get_last
+    title: Get Last Quote
+    handler: GetLast
+    safety: read
+    description: Get a compact live pricing snapshot for one event-contract or perpetual market - last/mark price, best bid and ask, 24h volume, and status. Prices stay fixed-point strings.
+    sources:
+      - spec: trade
+        operation_id: GetMarket
+      - spec: perps
+        operation_id: GetMarginMarket
+    input:
+      properties:
+        - name: product
+          type: string
+          required: true
+          enum: [event, perp]
+          description: Product family containing the ticker.
+        - name: ticker
+          type: string
+          required: true
+          description: Exact Kalshi market ticker.
+
   - name: get_portfolio
     title: Get Portfolio
     handler: GetPortfolio

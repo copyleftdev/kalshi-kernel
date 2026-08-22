@@ -208,6 +208,33 @@ func (handler *Handler) GetTrades(
 	})
 }
 
+func (handler *Handler) GetLast(
+	ctx context.Context,
+	req *mcp.CallToolRequest,
+	input mcptools.GetLastInput,
+) (*mcp.CallToolResult, mcptools.Response, error) {
+	client := handler.marketData()
+	var (
+		quote *marketdata.LastQuote
+		err   error
+	)
+	switch input.Product {
+	case "event":
+		quote, err = client.GetEventLastQuote(ctx, input.Ticker)
+	case "perp":
+		quote, err = client.GetMarginLastQuote(ctx, input.Ticker)
+	default:
+		return handler.respondError("get_last", errors.New("product must be event or perp"))
+	}
+	if err != nil {
+		return handler.respondError("get_last", err)
+	}
+	return handler.respond(map[string]any{
+		"product": input.Product,
+		"quote":   quote,
+	})
+}
+
 func deref(s *string) string {
 	if s == nil {
 		return ""
