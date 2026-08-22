@@ -48,11 +48,11 @@ func NewClientWithBaseURL(baseURL string, httpClient *http.Client) *Client {
 
 // Typed error codes surfaced through mcptools.Response.Error.Code.
 const (
-	errUpstream      = "upstream_error"      // non-200 from exchange
-	errRateLimited   = "rate_limited"        // 429: caller decides retry
-	errBadInput      = "invalid_input"       // request failed validation here
-	errUnreachable   = "upstream_unreachable" // network/transport failure
-	errBadPayload    = "upstream_payload_invalid"
+	errUpstream    = "upstream_error"       // non-200 from exchange
+	errRateLimited = "rate_limited"         // 429: caller decides retry
+	errBadInput    = "invalid_input"        // request failed validation here
+	errUnreachable = "upstream_unreachable" // network/transport failure
+	errBadPayload  = "upstream_payload_invalid"
 )
 
 func get(ctx context.Context, c *Client, path string, query url.Values, out any) error {
@@ -110,17 +110,17 @@ func typed(code, message string) error { return &typedError{code: code, message:
 // sized for agent context budgets. Prices and sizes stay fixed-point
 // strings exactly as upstream emits them.
 type MarketSummary struct {
-	Ticker          string `json:"ticker"`
-	EventTicker     string `json:"event_ticker,omitempty"`
-	SeriesTicker    string `json:"series_ticker,omitempty"`
-	Title           string `json:"title,omitempty"`
-	YesSubTitle     string `json:"yes_sub_title,omitempty"`
-	Status          string `json:"status,omitempty"`
-	YesBidDollars   string `json:"yes_bid_dollars,omitempty"`
-	YesAskDollars   string `json:"yes_ask_dollars,omitempty"`
-	VolumeFP        string `json:"volume_fp,omitempty"`
-	OpenInterestFP  string `json:"open_interest_fp,omitempty"`
-	CloseTime       string `json:"close_time,omitempty"`
+	Ticker         string `json:"ticker"`
+	EventTicker    string `json:"event_ticker,omitempty"`
+	SeriesTicker   string `json:"series_ticker,omitempty"`
+	Title          string `json:"title,omitempty"`
+	YesSubTitle    string `json:"yes_sub_title,omitempty"`
+	Status         string `json:"status,omitempty"`
+	YesBidDollars  string `json:"yes_bid_dollars,omitempty"`
+	YesAskDollars  string `json:"yes_ask_dollars,omitempty"`
+	VolumeFP       string `json:"volume_fp,omitempty"`
+	OpenInterestFP string `json:"open_interest_fp,omitempty"`
+	CloseTime      string `json:"close_time,omitempty"`
 }
 
 // MarketsPage is one page of search results with the passthrough cursor.
@@ -284,6 +284,217 @@ func (c *Client) GetMarginOrderbook(ctx context.Context, ticker string, depth in
 	}
 	ob := raw.Orderbook
 	return &ob, nil
+}
+
+// OHLC is an open/high/low/close distribution of fixed-point dollar
+// strings. Traded-price distributions may be null when no trade occurred
+// in the bucket; quote (bid/ask) distributions are required by upstream.
+type OHLC struct {
+	OpenDollars  *string `json:"open_dollars,omitempty"`
+	HighDollars  *string `json:"high_dollars,omitempty"`
+	LowDollars   *string `json:"low_dollars,omitempty"`
+	CloseDollars *string `json:"close_dollars,omitempty"`
+}
+
+// Candlestick is one OHLC bucket exactly as upstream emits it: prices are
+// fixed-point dollar strings, volume/open interest are fixed-point strings.
+// price may be nil when no trade printed during the period.
+type Candlestick struct {
+	EndPeriodTS int64  `json:"end_period_ts"`
+	Price       *OHLC  `json:"price,omitempty"`
+	YesBid      *OHLC  `json:"yes_bid,omitempty"`
+	YesAsk      *OHLC  `json:"yes_ask,omitempty"`
+	VolumeFP    string `json:"volume_fp,omitempty"`
+	OpenIntFP   string `json:"open_interest_fp,omitempty"`
+}
+
+// CandlesPage is the candlestick response with echo metadata.
+type CandlesPage struct {
+	Ticker        string        `json:"ticker"`
+	PeriodMinutes int           `json:"period_interval_minutes"`
+	Candlesticks  []Candlestick `json:"candlesticks"`
+}
+
+// CandleOptions carries required candlestick window parameters.
+type CandleOptions struct {
+	StartTS                  int64
+	EndTS                    int64
+	PeriodIntervalMinutes    int
+	IncludeLatestBeforeStart bool
+}
+
+func validateCandleOptions(opt CandleOptions) error {
+	if opt.StartTS <= 0 || opt.EndTS <= 0 {
+		return typed(errBadInput, "start_ts and end_ts are required unix timestamps")
+	}
+	if opt.EndTS < opt.StartTS {
+		return typed(errBadInput, "end_ts must be >= start_ts")
+	}
+	switch opt.PeriodIntervalMinutes {
+	case 1, 60, 1440:
+	default:
+		return typed(errBadInput, "period_interval must be 1, 60, or 1440 minutes")
+	}
+	return nil
+}
+
+func candleQuery(opt CandleOptions) url.Values {
+	q := url.Values{}
+	q.Set("start_ts", strconv.FormatInt(opt.StartTS, 10))
+	q.Set("end_ts", strconv.FormatInt(opt.EndTS, 10))
+	q.Set("period_interval", strconv.Itoa(opt.PeriodIntervalMinutes))
+	if opt.IncludeLatestBeforeStart {
+		q.Set("include_latest_before_start", "true")
+	}
+	return q
+}
+
+func decodeCandles(raw json.RawMessage) ([]Candlestick, error) {
+	var parsed struct {
+		Candlesticks []struct {
+			EndPeriodTS int64       `json:"end_period_ts"`
+			Price       *OHLC       `json:"price"`
+			YesBid      *OHLC       `json:"yes_bid"`
+			YesAsk      *OHLC       `json:"yes_ask"`
+			VolumeFP    json.Number `json:"volume_fp"`
+			OpenIntFP   json.Number `json:"open_interest_fp"`
+		} `json:"candlesticks"`
+	}
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return nil, typed(errBadPayload, "unexpected candlestick payload: "+err.Error())
+	}
+	out := make([]Candlestick, 0, len(parsed.Candlesticks))
+	for _, c := range parsed.Candlesticks {
+		out = append(out, Candlestick{
+			EndPeriodTS: c.EndPeriodTS,
+			Price:       c.Price,
+			YesBid:      c.YesBid,
+			YesAsk:      c.YesAsk,
+			VolumeFP:    c.VolumeFP.String(),
+			OpenIntFP:   c.OpenIntFP.String(),
+		})
+	}
+	return out, nil
+}
+
+// GetEventCandles fetches candlesticks for an event-contract market.
+// seriesTicker is the market's parent series (upstream path component).
+func (c *Client) GetEventCandles(ctx context.Context, seriesTicker, ticker string, opt CandleOptions) (*CandlesPage, error) {
+	if seriesTicker == "" || ticker == "" {
+		return nil, typed(errBadInput, "series_ticker and ticker are required")
+	}
+	if err := validateCandleOptions(opt); err != nil {
+		return nil, err
+	}
+	var raw json.RawMessage
+	path := "/trade-api/v2/series/" + url.PathEscape(seriesTicker) +
+		"/markets/" + url.PathEscape(ticker) + "/candlesticks"
+	if err := get(ctx, c, path, candleQuery(opt), &raw); err != nil {
+		return nil, err
+	}
+	candles, err := decodeCandles(raw)
+	if err != nil {
+		return nil, err
+	}
+	return &CandlesPage{
+		Ticker:        ticker,
+		PeriodMinutes: opt.PeriodIntervalMinutes,
+		Candlesticks:  candles,
+	}, nil
+}
+
+// GetMarginCandles fetches candlesticks for a perpetuals market.
+func (c *Client) GetMarginCandles(ctx context.Context, ticker string, opt CandleOptions) (*CandlesPage, error) {
+	if ticker == "" {
+		return nil, typed(errBadInput, "ticker is required")
+	}
+	if err := validateCandleOptions(opt); err != nil {
+		return nil, err
+	}
+	var raw json.RawMessage
+	path := "/trade-api/v2/margin/markets/" + url.PathEscape(ticker) + "/candlesticks"
+	if err := get(ctx, c, path, candleQuery(opt), &raw); err != nil {
+		return nil, err
+	}
+	candles, err := decodeCandles(raw)
+	if err != nil {
+		return nil, err
+	}
+	return &CandlesPage{
+		Ticker:        ticker,
+		PeriodMinutes: opt.PeriodIntervalMinutes,
+		Candlesticks:  candles,
+	}, nil
+}
+
+// Trade is one public print on the tape, verbatim fixed-point strings.
+type Trade struct {
+	Ticker       string `json:"ticker"`
+	PriceDollars string `json:"yes_price_dollars,omitempty"`
+	CountFP      string `json:"count_fp,omitempty"`
+	TradedAt     string `json:"created_time,omitempty"`
+	IsBlockTrade *bool  `json:"is_block_trade,omitempty"`
+	TradeID      string `json:"trade_id,omitempty"`
+}
+
+// TradesPage is one page of the trade tape with passthrough cursor.
+type TradesPage struct {
+	Trades []Trade `json:"trades"`
+	Cursor string  `json:"cursor,omitempty"`
+}
+
+// TradesOptions maps curated get_trades filters onto upstream parameters.
+type TradesOptions struct {
+	Ticker       string
+	MinTS        int64
+	MaxTS        int64
+	Limit        int
+	Cursor       string
+	IsBlockTrade *bool
+}
+
+// GetEventTrades fetches one page of the public event-contract trade tape.
+func (c *Client) GetEventTrades(ctx context.Context, opt TradesOptions) (*TradesPage, error) {
+	if opt.Ticker == "" {
+		return nil, typed(errBadInput, "ticker is required")
+	}
+	q := url.Values{}
+	q.Set("ticker", opt.Ticker)
+	if opt.MinTS > 0 {
+		q.Set("min_ts", strconv.FormatInt(opt.MinTS, 10))
+	}
+	if opt.MaxTS > 0 {
+		q.Set("max_ts", strconv.FormatInt(opt.MaxTS, 10))
+	}
+	if opt.Limit > 0 {
+		q.Set("limit", strconv.Itoa(opt.Limit))
+	}
+	setIfNotEmpty(q, "cursor", opt.Cursor)
+	if opt.IsBlockTrade != nil {
+		q.Set("is_block_trade", strconv.FormatBool(*opt.IsBlockTrade))
+	}
+	var raw struct {
+		Trades []struct {
+			Ticker       string `json:"ticker"`
+			YesPrice     string `json:"yes_price_dollars"`
+			CountFP      string `json:"count_fp"`
+			CreatedTime  string `json:"created_time"`
+			IsBlockTrade *bool  `json:"is_block_trade"`
+			TradeID      string `json:"trade_id"`
+		} `json:"trades"`
+		Cursor string `json:"cursor"`
+	}
+	if err := get(ctx, c, "/trade-api/v2/markets/trades", q, &raw); err != nil {
+		return nil, err
+	}
+	page := &TradesPage{Cursor: raw.Cursor}
+	for _, t := range raw.Trades {
+		page.Trades = append(page.Trades, Trade{
+			Ticker: t.Ticker, PriceDollars: t.YesPrice, CountFP: t.CountFP,
+			TradedAt: t.CreatedTime, IsBlockTrade: t.IsBlockTrade, TradeID: t.TradeID,
+		})
+	}
+	return page, nil
 }
 
 func setIfNotEmpty(q url.Values, key, val string) {

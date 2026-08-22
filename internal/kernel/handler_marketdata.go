@@ -141,6 +141,73 @@ func (handler *Handler) GetOrderbook(
 	return handler.respond(data)
 }
 
+func (handler *Handler) GetCandles(
+	ctx context.Context,
+	req *mcp.CallToolRequest,
+	input mcptools.GetCandlesInput,
+) (*mcp.CallToolResult, mcptools.Response, error) {
+	client := handler.marketData()
+	opt := marketdata.CandleOptions{
+		StartTS:                  input.StartTs,
+		EndTS:                    input.EndTs,
+		PeriodIntervalMinutes:    input.PeriodInterval,
+		IncludeLatestBeforeStart: derefBool(input.IncludeLatestBeforeStart),
+	}
+	var (
+		page *marketdata.CandlesPage
+		err  error
+	)
+	switch input.Product {
+	case "event":
+		page, err = client.GetEventCandles(ctx, deref(input.SeriesTicker), input.Ticker, opt)
+	case "perp":
+		page, err = client.GetMarginCandles(ctx, input.Ticker, opt)
+	default:
+		return handler.respondError("get_candles", errors.New("product must be event or perp"))
+	}
+	if err != nil {
+		return handler.respondError("get_candles", err)
+	}
+	data := map[string]any{
+		"product":                 input.Product,
+		"ticker":                  page.Ticker,
+		"period_interval_minutes": page.PeriodMinutes,
+		"candlesticks":            page.Candlesticks,
+	}
+	if page.Candlesticks == nil {
+		data["candlesticks"] = []marketdata.Candlestick{}
+	}
+	return handler.respond(data)
+}
+
+func (handler *Handler) GetTrades(
+	ctx context.Context,
+	req *mcp.CallToolRequest,
+	input mcptools.GetTradesInput,
+) (*mcp.CallToolResult, mcptools.Response, error) {
+	client := handler.marketData()
+	opt := marketdata.TradesOptions{
+		Ticker: input.Ticker,
+		MinTS:  derefInt64(input.MinTs),
+		MaxTS:  derefInt64(input.MaxTs),
+		Limit:  derefInt(input.Limit),
+		Cursor: deref(input.Cursor),
+	}
+	page, err := client.GetEventTrades(ctx, opt)
+	if err != nil {
+		return handler.respondError("get_trades", err)
+	}
+	trades := page.Trades
+	if trades == nil {
+		trades = []marketdata.Trade{}
+	}
+	return handler.respond(map[string]any{
+		"ticker": input.Ticker,
+		"trades": trades,
+		"cursor": page.Cursor,
+	})
+}
+
 func deref(s *string) string {
 	if s == nil {
 		return ""
@@ -153,4 +220,18 @@ func derefInt(i *int) int {
 		return 0
 	}
 	return *i
+}
+
+func derefInt64(i *int64) int64 {
+	if i == nil {
+		return 0
+	}
+	return *i
+}
+
+func derefBool(b *bool) bool {
+	if b == nil {
+		return false
+	}
+	return *b
 }

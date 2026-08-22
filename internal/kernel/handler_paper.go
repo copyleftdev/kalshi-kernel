@@ -54,11 +54,11 @@ func (handler *Handler) GetPortfolio(
 	}
 	cash, positions, journal := handler.paperLedger().Snapshot()
 	data := map[string]any{
-		"product":       input.Product,
-		"cash_dollars":  cash,
-		"positions":     positions,
-		"fills":         journal,
-		"note":          "in-memory paper book; resets when the kernel process exits",
+		"product":      input.Product,
+		"cash_dollars": cash,
+		"positions":    positions,
+		"fills":        journal,
+		"note":         "in-memory paper book; resets when the kernel process exits",
 	}
 	return handler.respond(simulatedEnvelope(data))
 }
@@ -190,13 +190,13 @@ func (handler *Handler) PlaceOrder(
 		return handler.respondTyped("place_order", lerr)
 	}
 	data := map[string]any{
-		"product":         input.Product,
-		"ticker":          input.Ticker,
-		"side":            input.Side,
-		"fill":            res.Fill,
-		"replayed":        res.Replayed,
-		"cash_after":      res.CashAfter,
-		"orderbook_hash":  hash,
+		"product":        input.Product,
+		"ticker":         input.Ticker,
+		"side":           input.Side,
+		"fill":           res.Fill,
+		"replayed":       res.Replayed,
+		"cash_after":     res.CashAfter,
+		"orderbook_hash": hash,
 	}
 	return handler.respond(simulatedEnvelope(data))
 }
@@ -244,8 +244,8 @@ func (handler *Handler) respondTyped(tool string, err error) (*mcp.CallToolResul
 		code = "invalid_input"
 	}
 	return &mcp.CallToolResult{IsError: true}, mcptools.Response{
-		Mode: string(handler.config.Mode),
-		OK:   false,
+		Mode:  string(handler.config.Mode),
+		OK:    false,
 		Error: &mcptools.Error{Code: code, Message: tool + ": " + err.Error()},
 	}, nil
 }

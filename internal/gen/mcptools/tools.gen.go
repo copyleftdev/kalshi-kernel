@@ -48,6 +48,13 @@ var SourcesByTool = map[string][]Source{
 		{Spec: "market_data_ws", OperationID: "", Channel: "orderbook_delta"},
 		{Spec: "perps_ws", OperationID: "", Channel: "orderbook_delta"},
 	},
+	"get_candles": {
+		{Spec: "trade", OperationID: "GetMarketCandlesticks", Channel: ""},
+		{Spec: "perps", OperationID: "GetMarginMarketCandlesticks", Channel: ""},
+	},
+	"get_trades": {
+		{Spec: "trade", OperationID: "GetTrades", Channel: ""},
+	},
 	"get_portfolio": {
 		{Spec: "trade", OperationID: "GetBalance", Channel: ""},
 		{Spec: "trade", OperationID: "GetPositions", Channel: ""},
@@ -100,6 +107,26 @@ type GetOrderbookInput struct {
 	Depth   *int   `json:"depth,omitempty" jsonschema:"Maximum price levels to return on each side. Minimum: 1. Maximum: 100."`
 }
 
+// GetCandlesInput is generated from specs/mcp-tools.yaml.
+type GetCandlesInput struct {
+	Product                  string  `json:"product" jsonschema:"Product family containing the ticker. Allowed values: event, perp."`
+	Ticker                   string  `json:"ticker" jsonschema:"Exact Kalshi market ticker."`
+	SeriesTicker             *string `json:"series_ticker,omitempty" jsonschema:"Parent series ticker (required when product is event)."`
+	StartTs                  int64   `json:"start_ts" jsonschema:"Start unix timestamp; candles ending on or after this time are included. Minimum: 1."`
+	EndTs                    int64   `json:"end_ts" jsonschema:"End unix timestamp; candles ending on or before this time are included. Minimum: 1."`
+	PeriodInterval           int     `json:"period_interval" jsonschema:"Candle period in minutes. Valid values 1, 60, or 1440. Minimum: 1. Maximum: 1440."`
+	IncludeLatestBeforeStart *bool   `json:"include_latest_before_start,omitempty" jsonschema:"Prepend the latest candlestick before start_ts as a synthetic bucket."`
+}
+
+// GetTradesInput is generated from specs/mcp-tools.yaml.
+type GetTradesInput struct {
+	Ticker string  `json:"ticker" jsonschema:"Exact Kalshi market ticker to read the tape for."`
+	MinTs  *int64  `json:"min_ts,omitempty" jsonschema:"Only include trades at or after this unix timestamp."`
+	MaxTs  *int64  `json:"max_ts,omitempty" jsonschema:"Only include trades at or before this unix timestamp."`
+	Limit  *int    `json:"limit,omitempty" jsonschema:"Maximum number of trades to return per page (upstream default 100). Minimum: 1. Maximum: 1000."`
+	Cursor *string `json:"cursor,omitempty" jsonschema:"Pagination cursor returned by a previous call."`
+}
+
 // GetPortfolioInput is generated from specs/mcp-tools.yaml.
 type GetPortfolioInput struct {
 	Product    string `json:"product" jsonschema:"Product family to report. Allowed values: event, perp."`
@@ -149,6 +176,8 @@ type Handler interface {
 	SearchMarkets(context.Context, *mcp.CallToolRequest, SearchMarketsInput) (*mcp.CallToolResult, Response, error)
 	GetMarket(context.Context, *mcp.CallToolRequest, GetMarketInput) (*mcp.CallToolResult, Response, error)
 	GetOrderbook(context.Context, *mcp.CallToolRequest, GetOrderbookInput) (*mcp.CallToolResult, Response, error)
+	GetCandles(context.Context, *mcp.CallToolRequest, GetCandlesInput) (*mcp.CallToolResult, Response, error)
+	GetTrades(context.Context, *mcp.CallToolRequest, GetTradesInput) (*mcp.CallToolResult, Response, error)
 	GetPortfolio(context.Context, *mcp.CallToolRequest, GetPortfolioInput) (*mcp.CallToolResult, Response, error)
 	PlaceOrder(context.Context, *mcp.CallToolRequest, PlaceOrderInput) (*mcp.CallToolResult, Response, error)
 	AmendOrder(context.Context, *mcp.CallToolRequest, AmendOrderInput) (*mcp.CallToolResult, Response, error)
@@ -274,6 +303,90 @@ func Register(server *mcp.Server, handler Handler) {
 			"required": []string{"product", "ticker"},
 		},
 	}, handler.GetOrderbook)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_candles",
+		Description: "Get OHLC candlesticks for one event-contract or perpetual market over a time window. Prices are fixed-point strings; synthetic buckets may have null OHLC.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Get Candles",
+			ReadOnlyHint:    true,
+			DestructiveHint: boolPointer(false),
+			OpenWorldHint:   boolPointer(true),
+		},
+		InputSchema: map[string]any{
+			"type":                 "object",
+			"additionalProperties": false,
+			"properties": map[string]any{
+				"product": map[string]any{
+					"type":        "string",
+					"description": "Product family containing the ticker. Allowed values: event, perp.",
+
+					"enum": []string{"event", "perp"},
+				}, "ticker": map[string]any{
+					"type":        "string",
+					"description": "Exact Kalshi market ticker.",
+				}, "series_ticker": map[string]any{
+					"type":        "string",
+					"description": "Parent series ticker (required when product is event).",
+				}, "start_ts": map[string]any{
+					"type":        "integer",
+					"description": "Start unix timestamp; candles ending on or after this time are included. Minimum: 1.",
+
+					"minimum": 1,
+				}, "end_ts": map[string]any{
+					"type":        "integer",
+					"description": "End unix timestamp; candles ending on or before this time are included. Minimum: 1.",
+
+					"minimum": 1,
+				}, "period_interval": map[string]any{
+					"type":        "integer",
+					"description": "Candle period in minutes. Valid values 1, 60, or 1440. Minimum: 1. Maximum: 1440.",
+
+					"minimum": 1,
+					"maximum": 1440,
+				}, "include_latest_before_start": map[string]any{
+					"type":        "boolean",
+					"description": "Prepend the latest candlestick before start_ts as a synthetic bucket.",
+				},
+			},
+			"required": []string{"product", "ticker", "start_ts", "end_ts", "period_interval"},
+		},
+	}, handler.GetCandles)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_trades",
+		Description: "Get one page of the public trade tape for an event-contract market, filtered by time window. Prices and sizes stay fixed-point strings.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Get Trades",
+			ReadOnlyHint:    true,
+			DestructiveHint: boolPointer(false),
+			OpenWorldHint:   boolPointer(true),
+		},
+		InputSchema: map[string]any{
+			"type":                 "object",
+			"additionalProperties": false,
+			"properties": map[string]any{
+				"ticker": map[string]any{
+					"type":        "string",
+					"description": "Exact Kalshi market ticker to read the tape for.",
+				}, "min_ts": map[string]any{
+					"type":        "integer",
+					"description": "Only include trades at or after this unix timestamp.",
+				}, "max_ts": map[string]any{
+					"type":        "integer",
+					"description": "Only include trades at or before this unix timestamp.",
+				}, "limit": map[string]any{
+					"type":        "integer",
+					"description": "Maximum number of trades to return per page (upstream default 100). Minimum: 1. Maximum: 1000.",
+
+					"minimum": 1,
+					"maximum": 1000,
+				}, "cursor": map[string]any{
+					"type":        "string",
+					"description": "Pagination cursor returned by a previous call.",
+				},
+			},
+			"required": []string{"ticker"},
+		},
+	}, handler.GetTrades)
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_portfolio",
 		Description: "Return balances, positions, resting orders, and recent fills from the selected live or paper ledger.",

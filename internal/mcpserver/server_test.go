@@ -38,7 +38,7 @@ func TestPaperServerAdvertisesCuratedToolsAndStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if got, want := len(tools.Tools), 8; got != want {
+	if got, want := len(tools.Tools), 10; got != want {
 		t.Fatalf("tool count = %d, want %d", got, want)
 	}
 
@@ -189,6 +189,8 @@ func TestAllToolsPublishStrictSchemasAndSafetyAnnotations(t *testing.T) {
 		"search_markets": true,
 		"get_market":     true,
 		"get_orderbook":  true,
+		"get_candles":    true,
+		"get_trades":     true,
 		"get_portfolio":  true,
 	}
 	for _, tool := range listed.Tools {
@@ -307,8 +309,8 @@ func TestStreamableHTTPNegotiation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListTools(): %v", err)
 	}
-	if len(listed.Tools) != 8 {
-		t.Fatalf("HTTP tool count = %d, want 8", len(listed.Tools))
+	if len(listed.Tools) != 10 {
+		t.Fatalf("HTTP tool count = %d, want 10", len(listed.Tools))
 	}
 }
 
