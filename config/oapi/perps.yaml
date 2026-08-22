@@ -1,0 +1,8 @@
+package: perpsapi
+generate:
+  models: true
+  client: true
+output-options:
+  # Several upstream schemas are named like generated HTTP response wrappers.
+  response-type-suffix: HTTPResponse
+output: internal/gen/perpsapi/api.gen.go

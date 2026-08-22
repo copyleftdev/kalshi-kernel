@@ -1,0 +1,8 @@
+package: tradeapi
+generate:
+  models: true
+  client: true
+output-options:
+  # Several upstream schemas are named like generated HTTP response wrappers.
+  response-type-suffix: HTTPResponse
+output: internal/gen/tradeapi/api.gen.go

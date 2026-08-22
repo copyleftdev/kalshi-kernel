@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "fetched_at": "2026-08-22T14:17:46Z",
+  "source_host": "docs.kalshi.com",
+  "specs": [
+    {
+      "name": "market_data_ws",
+      "filename": "market_data_ws.yaml",
+      "url": "https://docs.kalshi.com/asyncapi.yaml",
+      "dialect": "asyncapi",
+      "version": "2.0.0",
+      "title": "Kalshi Market Data WebSocket API",
+      "sha256": "219f7967f2ed92bf15b02bfd4e7cefe3eb8a3da8c5d85335af2778992dba0400",
+      "etag": "W/\"XerqZ1U3c1bgzD50\"",
+      "last_modified": "Fri, 21 Aug 2026 17:09:22 GMT"
+    },
+    {
+      "name": "perps",
+      "filename": "perps.yaml",
+      "url": "https://docs.kalshi.com/perps_openapi.yaml",
+      "dialect": "openapi",
+      "version": "0.0.1",
+      "title": "Kalshi Trade API Manual Endpoints",
+      "sha256": "3f1ed4adbe5092bd96fe52e0e5595c3ca0b651f58e7152c5a43ae5703c4ae5d8",
+      "etag": "W/\"rWQU_GNzyxXnTRpL\"",
+      "last_modified": "Tue, 18 Aug 2026 18:41:59 GMT"
+    },
+    {
+      "name": "perps_ws",
+      "filename": "perps_ws.yaml",
+      "url": "https://docs.kalshi.com/perps_asyncapi.yaml",
+      "dialect": "asyncapi",
+      "version": "2.0.0",
+      "title": "Kalshi Perps WebSocket API",
+      "sha256": "8af2212c643e5effe105164f1383117a5859c2070a929b888fcda84c70b059cd",
+      "etag": "W/\"_JJGn6fZmpSThydh\"",
+      "last_modified": "Fri, 05 Jun 2026 14:49:08 GMT"
+    },
+    {
+      "name": "trade",
+      "filename": "trade.yaml",
+      "url": "https://docs.kalshi.com/openapi.yaml",
+      "dialect": "openapi",
+      "version": "3.28.0",
+      "title": "Kalshi Trade API Manual Endpoints",
+      "sha256": "6aec27d55fba82bc5acb18746bf3b0512456244267964617024d2e0b60fb4fea",
+      "etag": "W/\"USlrxtsTzQxlAxsA\"",
+      "last_modified": "Fri, 21 Aug 2026 22:07:08 GMT"
+    }
+  ]
+}

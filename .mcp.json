@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "kalshi-kernel": {
+      "command": "kalshi-kernel",
+      "env": {
+        "KALSHI_KERNEL_MODE": "paper"
+      }
+    }
+  }
+}

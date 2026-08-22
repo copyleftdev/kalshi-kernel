@@ -1,0 +1,293 @@
+version: 1
+server:
+  name: kalshi-kernel
+  version: 0.1.0
+  description: Safety-focused Kalshi event-contract and perpetuals trading kernel.
+
+# This is deliberately a curated, intent-level surface. The OpenAPI contracts remain
+# the transport source of truth, but their administrative and account-management
+# operations are not automatically exposed to an agent.
+tools:
+  - name: kernel_status
+    title: Check Kernel Status
+    handler: KernelStatus
+    safety: read
+    description: Report the immutable execution mode, backend readiness, market-data freshness, and enabled capabilities. Call this before any trading operation.
+    input:
+      properties: []
+
+  - name: search_markets
+    title: Search Markets
+    handler: SearchMarkets
+    safety: read
+    description: Find event-contract or perpetual markets using structured filters. Returns compact summaries suitable for choosing a ticker.
+    sources:
+      - spec: trade
+        operation_id: GetMarkets
+      - spec: perps
+        operation_id: GetMarginMarkets
+    input:
+      properties:
+        - name: product
+          type: string
+          required: true
+          enum: [event, perp]
+          description: Product family to search.
+        - name: tickers
+          type: string_array
+          description: Exact market tickers to include.
+        - name: event_ticker
+          type: string
+          description: Restrict event contracts to one event.
+        - name: series_ticker
+          type: string
+          description: Restrict event contracts to one series.
+        - name: status
+          type: string
+          description: Exchange market status filter.
+        - name: limit
+          type: integer
+          minimum: 1
+          maximum: 1000
+          description: Maximum number of markets to return.
+        - name: cursor
+          type: string
+          description: Pagination cursor returned by a previous call.
+
+  - name: get_market
+    title: Get Market
+    handler: GetMarket
+    safety: read
+    description: Get the authoritative metadata and current status for one event-contract or perpetual market.
+    sources:
+      - spec: trade
+        operation_id: GetMarket
+      - spec: perps
+        operation_id: GetMarginMarket
+    input:
+      properties:
+        - name: product
+          type: string
+          required: true
+          enum: [event, perp]
+          description: Product family containing the ticker.
+        - name: ticker
+          type: string
+          required: true
+          description: Exact Kalshi market ticker.
+
+  - name: get_orderbook
+    title: Get Order Book
+    handler: GetOrderbook
+    safety: read
+    description: Get the locally reconciled order book for one market, including freshness and sequence metadata.
+    sources:
+      - spec: trade
+        operation_id: GetMarketOrderbook
+      - spec: perps
+        operation_id: GetMarginMarketOrderbook
+      - spec: market_data_ws
+        channel: orderbook_delta
+      - spec: perps_ws
+        channel: orderbook_delta
+    input:
+      properties:
+        - name: product
+          type: string
+          required: true
+          enum: [event, perp]
+          description: Product family containing the ticker.
+        - name: ticker
+          type: string
+          required: true
+          description: Exact Kalshi market ticker.
+        - name: depth
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Maximum price levels to return on each side.
+
+  - name: get_portfolio
+    title: Get Portfolio
+    handler: GetPortfolio
+    safety: read
+    description: Return balances, positions, resting orders, and recent fills from the selected live or paper ledger.
+    sources:
+      - spec: trade
+        operation_id: GetBalance
+      - spec: trade
+        operation_id: GetPositions
+      - spec: trade
+        operation_id: GetOrders
+      - spec: trade
+        operation_id: GetFills
+      - spec: perps
+        operation_id: GetMarginBalance
+      - spec: perps
+        operation_id: GetMarginPositions
+      - spec: perps
+        operation_id: GetMarginOrders
+      - spec: perps
+        operation_id: GetMarginFills
+    input:
+      properties:
+        - name: product
+          type: string
+          required: true
+          enum: [event, perp]
+          description: Product family to report.
+        - name: subaccount
+          type: integer
+          minimum: 0
+          maximum: 63
+          description: Kalshi subaccount number; defaults to the primary account.
+
+  - name: place_order
+    title: Place Order
+    handler: PlaceOrder
+    safety: trade
+    description: Validate and place one order through the configured execution backend. In paper mode this can only affect the local simulated ledger.
+    sources:
+      - spec: trade
+        operation_id: CreateOrderV2
+      - spec: perps
+        operation_id: CreateMarginOrder
+    input:
+      properties:
+        - name: product
+          type: string
+          required: true
+          enum: [event, perp]
+          description: Product family containing the market.
+        - name: ticker
+          type: string
+          required: true
+          description: Exact Kalshi market ticker.
+        - name: client_order_id
+          type: string
+          description: Stable caller-provided idempotency identifier. The kernel generates one when omitted.
+        - name: side
+          type: string
+          required: true
+          enum: [bid, ask]
+          description: Single-book order side.
+        - name: count
+          type: decimal
+          required: true
+          pattern: '^[0-9]+(?:\.[0-9]{1,2})?$'
+          description: Fixed-point contract quantity encoded as a decimal string.
+        - name: price
+          type: decimal
+          required: true
+          pattern: '^[0-9]+(?:\.[0-9]{1,6})?$'
+          description: Fixed-point dollar price encoded as a decimal string.
+        - name: time_in_force
+          type: string
+          required: true
+          enum: [fill_or_kill, good_till_canceled, immediate_or_cancel]
+          description: Exchange time-in-force policy.
+        - name: expiration_time
+          type: integer64
+          description: Optional Unix time in seconds; only valid with good_till_canceled.
+        - name: post_only
+          type: boolean
+          description: Reject rather than immediately take liquidity.
+        - name: reduce_only
+          type: boolean
+          description: Prevent the order from increasing exposure.
+        - name: cancel_order_on_pause
+          type: boolean
+          description: Cancel the resting order if exchange trading pauses.
+        - name: self_trade_prevention_type
+          type: string
+          required: true
+          enum: [taker_at_cross, maker]
+          description: Exchange self-trade prevention policy.
+        - name: subaccount
+          type: integer
+          minimum: 0
+          maximum: 63
+          description: Kalshi subaccount number; defaults to the primary account.
+
+  - name: amend_order
+    title: Amend Order
+    handler: AmendOrder
+    safety: trade
+    description: Amend the price and/or maximum fillable quantity of an existing live or paper order.
+    sources:
+      - spec: trade
+        operation_id: AmendOrderV2
+      - spec: perps
+        operation_id: AmendMarginOrder
+    input:
+      properties:
+        - name: product
+          type: string
+          required: true
+          enum: [event, perp]
+          description: Product family containing the order.
+        - name: order_id
+          type: string
+          required: true
+          description: Exchange or paper order identifier.
+        - name: ticker
+          type: string
+          required: true
+          description: Exact market ticker used for routing and validation.
+        - name: side
+          type: string
+          required: true
+          enum: [bid, ask]
+          description: Existing single-book order side required by the upstream amend operation.
+        - name: price
+          type: decimal
+          required: true
+          pattern: '^[0-9]+(?:\.[0-9]{1,6})?$'
+          description: Desired fixed-point dollar price; pass the existing value when changing only quantity.
+        - name: count
+          type: decimal
+          required: true
+          pattern: '^[0-9]+(?:\.[0-9]{1,2})?$'
+          description: Desired total maximum fillable quantity; pass the existing value when changing only price.
+        - name: client_order_id
+          type: string
+          description: Existing client order identifier.
+        - name: updated_client_order_id
+          type: string
+          description: New idempotency identifier for the amended order.
+        - name: subaccount
+          type: integer
+          minimum: 0
+          maximum: 63
+          description: Kalshi subaccount number; defaults to the primary account.
+
+  - name: cancel_order
+    title: Cancel Order
+    handler: CancelOrder
+    safety: trade
+    description: Cancel the remaining quantity of one live or paper order.
+    sources:
+      - spec: trade
+        operation_id: CancelOrderV2
+      - spec: perps
+        operation_id: CancelMarginOrder
+    input:
+      properties:
+        - name: product
+          type: string
+          required: true
+          enum: [event, perp]
+          description: Product family containing the order.
+        - name: order_id
+          type: string
+          required: true
+          description: Exchange or paper order identifier.
+        - name: ticker
+          type: string
+          required: true
+          description: Exact market ticker used for routing and validation.
+        - name: subaccount
+          type: integer
+          minimum: 0
+          maximum: 63
+          description: Kalshi subaccount number; defaults to the primary account.

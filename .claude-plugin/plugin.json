@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "kalshi-kernel",
+  "displayName": "Kalshi Kernel",
+  "version": "0.1.0",
+  "description": "Unofficial safety-focused MCP boundary for Kalshi market and trading workflows",
+  "author": {
+    "name": "CopyleftDev",
+    "url": "https://github.com/copyleftdev/kalshi-kernel"
+  },
+  "homepage": "https://github.com/copyleftdev/kalshi-kernel",
+  "repository": "https://github.com/copyleftdev/kalshi-kernel",
+  "license": "Apache-2.0",
+  "keywords": ["mcp", "kalshi", "markets", "paper-trading", "trading-safety"],
+  "defaultEnabled": false,
+  "mcpServers": "./.mcp.json"
+}

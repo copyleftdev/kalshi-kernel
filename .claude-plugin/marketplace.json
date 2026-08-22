@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "kalshi-kernel",
+  "description": "Unofficial Kalshi interoperability plugins maintained by CopyleftDev",
+  "owner": {
+    "name": "CopyleftDev",
+    "url": "https://github.com/copyleftdev"
+  },
+  "plugins": [
+    {
+      "name": "kalshi-kernel",
+      "displayName": "Kalshi Kernel",
+      "source": "./",
+      "description": "Safety-focused local MCP server for Kalshi market and trading workflows",
+      "version": "0.1.0",
+      "author": {
+        "name": "CopyleftDev"
+      },
+      "homepage": "https://github.com/copyleftdev/kalshi-kernel",
+      "repository": "https://github.com/copyleftdev/kalshi-kernel",
+      "license": "Apache-2.0",
+      "keywords": ["mcp", "kalshi", "markets", "paper-trading"],
+      "category": "productivity",
+      "tags": ["finance", "mcp", "trading"],
+      "strict": true,
+      "defaultEnabled": false
+    }
+  ]
+}

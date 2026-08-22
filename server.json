@@ -1,0 +1,54 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.copyleftdev/kalshi-kernel",
+  "title": "Kalshi Kernel",
+  "description": "Unofficial safety-focused MCP server for Kalshi market data and explicitly authorized trading",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/copyleftdev/kalshi-kernel",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/copyleftdev/kalshi-kernel",
+  "packages": [
+    {
+      "registryType": "oci",
+      "identifier": "ghcr.io/copyleftdev/kalshi-kernel:0.1.0",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "KALSHI_KERNEL_MODE",
+          "description": "Immutable execution mode; paper is the safe default",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string",
+          "choices": ["paper", "live"],
+          "default": "paper"
+        },
+        {
+          "name": "KALSHI_API_KEY_ID",
+          "description": "Kalshi API key identifier; used only in live mode",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "KALSHI_PRIVATE_KEY_PATH",
+          "description": "Path to a mounted Kalshi private key; used only in live mode",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "filepath"
+        },
+        {
+          "name": "KALSHI_LIVE_TRADING_ACK",
+          "description": "Explicit live-risk acknowledgement documented by this project",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}

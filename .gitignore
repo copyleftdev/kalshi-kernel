@@ -1,0 +1,22 @@
+/bin/
+/coverage/
+/dist/
+/.env
+/.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+coverage.out
+
+# Fetched dynamically from docs.kalshi.com. These contract bodies include
+# proprietary-licensed material and must not be committed or redistributed.
+/specs/trade.yaml
+/specs/market_data_ws.yaml
+/specs/perps.yaml
+/specs/perps_ws.yaml
+
+# Generated from the untracked upstream contracts. Regenerate locally; do not
+# include these derived clients in source releases without a rights review.
+/internal/gen/tradeapi/api.gen.go
+/internal/gen/perpsapi/api.gen.go

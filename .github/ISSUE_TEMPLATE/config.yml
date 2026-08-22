@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/copyleftdev/kalshi-kernel/security/advisories/new
+    about: Report vulnerabilities privately; never disclose secrets in a public issue.
+  - name: Support guide
+    url: https://github.com/copyleftdev/kalshi-kernel/blob/main/SUPPORT.md
+    about: Read the support and diagnostic guidance before filing an issue.

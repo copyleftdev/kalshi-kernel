@@ -1,0 +1,37 @@
+name: Feature proposal
+description: Propose a scoped capability or improvement
+title: "proposal: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: What concrete workflow is missing?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the MCP surface and expected result without prescribing unnecessary implementation detail.
+    validations:
+      required: true
+  - type: dropdown
+    id: class
+    attributes:
+      label: Safety class
+      options:
+        - Read-only
+        - Paper-only write
+        - Live-capable write
+        - Non-tool infrastructure
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks and failure modes
+      description: Address authorization, stale data, retries, idempotency, limits, privacy, and rollback as applicable.
+    validations:
+      required: true
