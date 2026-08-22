@@ -260,10 +260,44 @@ func (handler *Handler) CancelOrder(
 	req *mcp.CallToolRequest,
 	input mcptools.CancelOrderInput,
 ) (*mcp.CallToolResult, mcptools.Response, error) {
+	if handler.config.Mode == config.ModeLive {
+		return handler.liveCancelOrder(ctx, input)
+	}
 	if handler.config.Mode != "paper" {
 		return handler.notReady("cancel_order")
 	}
 	return handler.respondError("cancel_order", ledger.ErrNoRestingOrder)
+}
+
+// liveCancelOrder cancels one resting event-market order through the
+// signed live client. Stage 2: this is the only live write path.
+func (handler *Handler) liveCancelOrder(
+	ctx context.Context,
+	input mcptools.CancelOrderInput,
+) (*mcp.CallToolResult, mcptools.Response, error) {
+	if input.Product != "event" {
+		return handler.respondError("cancel_order", errors.New("live cancel currently supports event-contract orders only"))
+	}
+	client, err := handler.liveClient()
+	if err != nil {
+		return handler.respondError("cancel_order", err)
+	}
+	res, err := client.CancelOrder(ctx, input.OrderID, input.Ticker)
+	if err != nil {
+		return &mcp.CallToolResult{IsError: true}, mcptools.Response{
+			Mode:  string(handler.config.Mode),
+			OK:    false,
+			Error: &mcptools.Error{Code: live.Code(err), Message: "cancel_order: " + err.Error()},
+		}, nil
+	}
+	return handler.respond(map[string]any{
+		"product":         input.Product,
+		"order_id":        res.OrderID,
+		"client_order_id": res.ClientOrderID,
+		"reduced_by_fp":   res.ReducedByFP,
+		"ts_ms":           res.TsMs,
+		"simulated":       false,
+	})
 }
 
 // respondTyped maps a ledger sentinel error to its typed code.

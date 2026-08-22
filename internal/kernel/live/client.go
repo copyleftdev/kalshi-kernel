@@ -37,13 +37,16 @@ const (
 
 // Typed error codes surfaced through mcptools.Response.Error.Code.
 const (
-	ErrUpstream    = "upstream_error"
-	ErrRateLimited = "rate_limited"
-	ErrUnauthed    = "not_authorized"
-	ErrBadInput    = "invalid_input"
-	ErrUnreachable = "upstream_unreachable"
-	ErrBadPayload  = "upstream_payload_invalid"
-	ErrBadKey      = "credential_invalid"
+	ErrUpstream      = "upstream_error"
+	ErrRateLimited   = "rate_limited"
+	ErrUnauthed      = "not_authorized"
+	ErrBadInput      = "invalid_input"
+	ErrUnreachable   = "upstream_unreachable"
+	ErrBadPayload    = "upstream_payload_invalid"
+	ErrBadKey        = "credential_invalid"
+	ErrNotFound      = "order_not_found"
+	ErrNotResting    = "order_not_resting"
+	ErrIndeterminate = "outcome_indeterminate"
 )
 
 // Client performs authenticated GET requests against Kalshi portfolio
@@ -115,6 +118,10 @@ func Code(err error) string {
 
 func typed(code, message string) error { return &typedError{code: code, message: message} }
 
+func typedf(code, format string, args ...any) error {
+	return &typedError{code: code, message: fmt.Sprintf(format, args...)}
+}
+
 // sign produces the RSA-PSS signature over "timestamp + METHOD + path[?query]"
 // exactly as the Kalshi API expects.
 func (c *Client) sign(timestampMs int64, method, pathWithQuery string) (string, error) {
@@ -128,16 +135,23 @@ func (c *Client) sign(timestampMs int64, method, pathWithQuery string) (string, 
 }
 
 func (c *Client) get(ctx context.Context, path string, query url.Values, out any) error {
+	return c.do(ctx, http.MethodGet, path, query, out)
+}
+
+// do performs one signed request. The signature base uses the path with
+// query string for GET and the bare path for body-carrying methods,
+// matching the Kalshi signing contract.
+func (c *Client) do(ctx context.Context, method, path string, query url.Values, out any) error {
 	full := path
 	if len(query) > 0 {
 		full += "?" + query.Encode()
 	}
 	ts := time.Now().UnixMilli()
-	sig, err := c.sign(ts, http.MethodGet, full)
+	sig, err := c.sign(ts, method, full)
 	if err != nil {
 		return err
 	}
-	req, rerr := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+full, nil)
+	req, rerr := http.NewRequestWithContext(ctx, method, c.baseURL+full, nil)
 	if rerr != nil {
 		return typed(ErrBadInput, "request construction failed")
 	}
@@ -316,6 +330,144 @@ func (c *Client) GetPortfolio(ctx context.Context) (*Portfolio, error) {
 		})
 	}
 	return p, nil
+}
+
+// LiveOrder is the authoritative exchange-side view of one order.
+type LiveOrder struct {
+	OrderID        string `json:"order_id"`
+	ClientOrderID  string `json:"client_order_id,omitempty"`
+	Ticker         string `json:"ticker"`
+	OutcomeSide    string `json:"outcome_side,omitempty"`
+	BookSide       string `json:"book_side,omitempty"`
+	Status         string `json:"status"`
+	Type           string `json:"type,omitempty"`
+	YesPrice       string `json:"yes_price_dollars,omitempty"`
+	FillCountFP    string `json:"fill_count_fp,omitempty"`
+	RemainingFP    string `json:"remaining_count_fp,omitempty"`
+	InitialCountFP string `json:"initial_count_fp,omitempty"`
+}
+
+// GetOrder fetches the authoritative order state from the exchange.
+// This is the reconciliation source of truth after any write attempt.
+func (c *Client) GetOrder(ctx context.Context, orderID string) (*LiveOrder, error) {
+	if orderID == "" {
+		return nil, typed(ErrBadInput, "order_id is required")
+	}
+	var raw struct {
+		Order struct {
+			OrderID        string `json:"order_id"`
+			ClientOrderID  string `json:"client_order_id"`
+			Ticker         string `json:"ticker"`
+			OutcomeSide    string `json:"outcome_side"`
+			BookSide       string `json:"book_side"`
+			Status         string `json:"status"`
+			Type           string `json:"type"`
+			YesPrice       string `json:"yes_price_dollars"`
+			FillCountFP    string `json:"fill_count_fp"`
+			RemainingFP    string `json:"remaining_count_fp"`
+			InitialCountFP string `json:"initial_count_fp"`
+		} `json:"order"`
+	}
+	path := "/trade-api/v2/portfolio/orders/" + url.PathEscape(orderID)
+	if err := c.get(ctx, path, nil, &raw); err != nil {
+		return nil, err
+	}
+	o := raw.Order
+	return &LiveOrder{
+		OrderID: o.OrderID, ClientOrderID: o.ClientOrderID, Ticker: o.Ticker,
+		OutcomeSide: o.OutcomeSide, BookSide: o.BookSide, Status: o.Status,
+		Type: o.Type, YesPrice: o.YesPrice, FillCountFP: o.FillCountFP,
+		RemainingFP: o.RemainingFP, InitialCountFP: o.InitialCountFP,
+	}, nil
+}
+
+// CancelResult reports what the exchange acknowledged about a cancellation.
+type CancelResult struct {
+	OrderID       string `json:"order_id"`
+	ClientOrderID string `json:"client_order_id,omitempty"`
+	ReducedByFP   string `json:"reduced_by_fp"`
+	TsMs          int64  `json:"ts_ms"`
+}
+
+// CancelOrder cancels the remaining quantity of one resting event-market
+// order (DELETE /portfolio/events/orders/{order_id}, V2 response shape).
+//
+// Indeterminate-outcome contract (docs/THREAT_MODEL.md): a network timeout
+// is NEVER reported as a clean failure. On timeout or transport failure we
+// immediately re-query the order and report either its true state or an
+// explicit outcome_indeterminate error — never a blind retry of the delete.
+func (c *Client) CancelOrder(ctx context.Context, orderID, marketTicker string) (*CancelResult, error) {
+	if orderID == "" {
+		return nil, typed(ErrBadInput, "order_id is required")
+	}
+
+	// State gate: only a resting order may be cancelled; this prevents
+	// pointless deletes on executed/canceled orders and gives precise
+	// typed failures instead of upstream 4xx guesses.
+	order, err := c.GetOrder(ctx, orderID)
+	if err != nil {
+		return nil, err
+	}
+	switch order.Status {
+	case "resting":
+		// proceed
+	case "canceled":
+		return nil, typedf(ErrNotResting, "order %s is already canceled", orderID)
+	case "executed":
+		return nil, typedf(ErrNotResting, "order %s is fully executed; nothing to cancel", orderID)
+	default:
+		return nil, typedf(ErrNotResting, "order %s has status %q; only resting orders can be canceled", orderID, order.Status)
+	}
+
+	q := url.Values{}
+	if marketTicker != "" {
+		q.Set("market_ticker", marketTicker)
+	}
+	path := "/trade-api/v2/portfolio/events/orders/" + url.PathEscape(orderID)
+
+	var raw struct {
+		OrderID       string      `json:"order_id"`
+		ClientOrderID string      `json:"client_order_id"`
+		ReducedBy     json.Number `json:"reduced_by"`
+		TsMs          int64       `json:"ts_ms"`
+	}
+	derr := c.do(ctx, http.MethodDelete, path, q, &raw)
+	if derr == nil {
+		return &CancelResult{
+			OrderID:       raw.OrderID,
+			ClientOrderID: raw.ClientOrderID,
+			ReducedByFP:   raw.ReducedBy.String(),
+			TsMs:          raw.TsMs,
+		}, nil
+	}
+
+	// Timeout / transport failure: outcome unknown by definition.
+	if Code(derr) == ErrUnreachable {
+		// The caller's context may be expired; reconciliation needs its
+		// own budget. This is a query, not a retry of the delete.
+		recheckCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		recheck, qerr := c.GetOrder(recheckCtx, orderID)
+		if qerr != nil {
+			return nil, typedf(ErrIndeterminate,
+				"cancel request for %s timed out and reconciliation query also failed (%s); resolve manually before retrying",
+				orderID, Code(qerr))
+		}
+		switch recheck.Status {
+		case "canceled":
+			// The cancel actually landed despite the timeout.
+			return &CancelResult{OrderID: orderID, ReducedByFP: recheck.RemainingFP}, nil
+		case "resting":
+			return nil, typedf(ErrIndeterminate,
+				"cancel request for %s timed out but order is still resting; safe to retry the cancel explicitly",
+				orderID)
+		default:
+			return nil, typedf(ErrIndeterminate,
+				"cancel request for %s timed out and order moved to %q during the attempt",
+				orderID, recheck.Status)
+		}
+	}
+	return nil, derr
 }
 
 func centsToDollars(cents int64) string {
