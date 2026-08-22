@@ -5,15 +5,29 @@ import (
 
 	"github.com/copyleftdev/kalshi-kernel/internal/config"
 	"github.com/copyleftdev/kalshi-kernel/internal/gen/mcptools"
+	"github.com/copyleftdev/kalshi-kernel/internal/kernel/marketdata"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// Handler implements the curated MCP tool surface. Write-path tools remain
+// fail-closed stubs until their execution adapters are connected; the three
+// read-only market-data tools are wired to public REST endpoints.
 type Handler struct {
 	config config.Config
+
+	// mdClient is a lazily-initialized read-only market-data client.
+	// It holds no credentials and performs no retries.
+	mdClient *marketdata.Client
 }
 
 func New(config config.Config) *Handler {
 	return &Handler{config: config}
+}
+
+// NewWithMarketData allows tests to inject a fixture-backed market-data
+// client. Production callers should use New.
+func NewWithMarketData(config config.Config, client *marketdata.Client) *Handler {
+	return &Handler{config: config, mdClient: client}
 }
 
 func (handler *Handler) KernelStatus(
@@ -26,37 +40,13 @@ func (handler *Handler) KernelStatus(
 		OK:   true,
 		Data: map[string]any{
 			"backend_ready":       false,
-			"market_data_ready":   false,
+			"market_data_ready":   true,
 			"live_mode_requested": handler.config.Mode == config.ModeLive,
 			"live_trading_armed":  false,
 			"generated_from_spec": true,
-			"reason":              "execution adapters are not connected yet",
+			"reason":              "read-only market data is live via public REST; execution adapters are not connected yet",
 		},
 	}, nil
-}
-
-func (handler *Handler) SearchMarkets(
-	context.Context,
-	*mcp.CallToolRequest,
-	mcptools.SearchMarketsInput,
-) (*mcp.CallToolResult, mcptools.Response, error) {
-	return handler.notReady("search_markets")
-}
-
-func (handler *Handler) GetMarket(
-	context.Context,
-	*mcp.CallToolRequest,
-	mcptools.GetMarketInput,
-) (*mcp.CallToolResult, mcptools.Response, error) {
-	return handler.notReady("get_market")
-}
-
-func (handler *Handler) GetOrderbook(
-	context.Context,
-	*mcp.CallToolRequest,
-	mcptools.GetOrderbookInput,
-) (*mcp.CallToolResult, mcptools.Response, error) {
-	return handler.notReady("get_orderbook")
 }
 
 func (handler *Handler) GetPortfolio(

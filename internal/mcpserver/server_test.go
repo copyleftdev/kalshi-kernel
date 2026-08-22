@@ -223,8 +223,8 @@ func TestUnconnectedCapabilitiesFailClosedWithModeEnvelope(t *testing.T) {
 	clientSession := connectInMemory(t, ctx, config.ModePaper)
 
 	result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
-		Name:      "get_market",
-		Arguments: map[string]any{"product": "event", "ticker": "EXAMPLE"},
+		Name:      "get_portfolio",
+		Arguments: map[string]any{"product": "event"},
 	})
 	if err != nil {
 		t.Fatalf("CallTool(): %v", err)
