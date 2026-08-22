@@ -27,6 +27,13 @@ type Handler struct {
 	// live is the lazily-initialized signed account client (live mode
 	// only). Stage 1: portfolio reads; no write path exists.
 	live *live.Client
+
+	// arm gates live order writes; process-local, never persisted.
+	arm live.ArmState
+
+	// tracker enforces kernel-side daily caps for live writes (nil until
+	// first live write; built from env-tunable conservative defaults).
+	tracker *live.RiskTracker
 }
 
 func New(config config.Config) *Handler {

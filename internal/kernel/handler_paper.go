@@ -158,6 +158,9 @@ func (handler *Handler) PlaceOrder(
 	req *mcp.CallToolRequest,
 	input mcptools.PlaceOrderInput,
 ) (*mcp.CallToolResult, mcptools.Response, error) {
+	if handler.config.Mode == config.ModeLive {
+		return handler.livePlaceOrder(ctx, input)
+	}
 	if handler.config.Mode != "paper" {
 		return handler.notReady("place_order")
 	}
@@ -248,6 +251,9 @@ func (handler *Handler) AmendOrder(
 ) (*mcp.CallToolResult, mcptools.Response, error) {
 	// Paper v1 fills immediately all-or-nothing, so there is nothing to
 	// amend. Keep the tool present with a precise typed failure.
+	if handler.config.Mode == config.ModeLive {
+		return handler.liveAmendOrder(ctx, input)
+	}
 	if handler.config.Mode != "paper" {
 		return handler.notReady("amend_order")
 	}

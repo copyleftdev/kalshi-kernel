@@ -59,6 +59,9 @@ var SourcesByTool = map[string][]Source{
 		{Spec: "trade", OperationID: "GetMarket", Channel: ""},
 		{Spec: "perps", OperationID: "GetMarginMarket", Channel: ""},
 	},
+	"arm_live_trading": {
+		{Spec: "trade", OperationID: "CreateOrderV2", Channel: ""},
+	},
 	"get_portfolio": {
 		{Spec: "trade", OperationID: "GetBalance", Channel: ""},
 		{Spec: "trade", OperationID: "GetPositions", Channel: ""},
@@ -137,6 +140,12 @@ type GetLastInput struct {
 	Ticker  string `json:"ticker" jsonschema:"Exact Kalshi market ticker."`
 }
 
+// ArmLiveTradingInput is generated from specs/mcp-tools.yaml.
+type ArmLiveTradingInput struct {
+	Acknowledgement string `json:"acknowledgement" jsonschema:"Must exactly equal the startup acknowledgement literal (I_UNDERSTAND_THIS_TRADES_REAL_MONEY)."`
+	Arm             bool   `json:"arm" jsonschema:"True to arm, false to disarm."`
+}
+
 // GetPortfolioInput is generated from specs/mcp-tools.yaml.
 type GetPortfolioInput struct {
 	Product    string `json:"product" jsonschema:"Product family to report. Allowed values: event, perp."`
@@ -189,6 +198,7 @@ type Handler interface {
 	GetCandles(context.Context, *mcp.CallToolRequest, GetCandlesInput) (*mcp.CallToolResult, Response, error)
 	GetTrades(context.Context, *mcp.CallToolRequest, GetTradesInput) (*mcp.CallToolResult, Response, error)
 	GetLast(context.Context, *mcp.CallToolRequest, GetLastInput) (*mcp.CallToolResult, Response, error)
+	ArmLiveTrading(context.Context, *mcp.CallToolRequest, ArmLiveTradingInput) (*mcp.CallToolResult, Response, error)
 	GetPortfolio(context.Context, *mcp.CallToolRequest, GetPortfolioInput) (*mcp.CallToolResult, Response, error)
 	PlaceOrder(context.Context, *mcp.CallToolRequest, PlaceOrderInput) (*mcp.CallToolResult, Response, error)
 	AmendOrder(context.Context, *mcp.CallToolRequest, AmendOrderInput) (*mcp.CallToolResult, Response, error)
@@ -424,6 +434,30 @@ func Register(server *mcp.Server, handler Handler) {
 			"required": []string{"product", "ticker"},
 		},
 	}, handler.GetLast)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "arm_live_trading",
+		Description: "Arm or disarm this kernel process for live order placement. Kernel-local control with no exchange side effects; paper mode is unaffected and paper trading never requires arming. Requires repeating the exact startup acknowledgement phrase as a deliberate second act; config alone never authorizes trading.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Arm Live Trading",
+			ReadOnlyHint:    false,
+			DestructiveHint: boolPointer(true),
+			OpenWorldHint:   boolPointer(true),
+		},
+		InputSchema: map[string]any{
+			"type":                 "object",
+			"additionalProperties": false,
+			"properties": map[string]any{
+				"acknowledgement": map[string]any{
+					"type":        "string",
+					"description": "Must exactly equal the startup acknowledgement literal (I_UNDERSTAND_THIS_TRADES_REAL_MONEY).",
+				}, "arm": map[string]any{
+					"type":        "boolean",
+					"description": "True to arm, false to disarm.",
+				},
+			},
+			"required": []string{"acknowledgement", "arm"},
+		},
+	}, handler.ArmLiveTrading)
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_portfolio",
 		Description: "Return balances, positions, resting orders, and recent fills from the selected live or paper ledger.",

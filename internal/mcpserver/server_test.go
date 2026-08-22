@@ -38,7 +38,7 @@ func TestPaperServerAdvertisesCuratedToolsAndStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if got, want := len(tools.Tools), 11; got != want {
+	if got, want := len(tools.Tools), 12; got != want {
 		t.Fatalf("tool count = %d, want %d", got, want)
 	}
 
@@ -185,14 +185,15 @@ func TestAllToolsPublishStrictSchemasAndSafetyAnnotations(t *testing.T) {
 		t.Fatalf("ListTools(): %v", err)
 	}
 	readTools := map[string]bool{
-		"kernel_status":  true,
-		"search_markets": true,
-		"get_market":     true,
-		"get_orderbook":  true,
-		"get_candles":    true,
-		"get_trades":     true,
-		"get_last":       true,
-		"get_portfolio":  true,
+		"kernel_status":    true,
+		"search_markets":   true,
+		"get_market":       true,
+		"get_orderbook":    true,
+		"get_candles":      true,
+		"get_trades":       true,
+		"get_last":         true,
+		"arm_live_trading": false,
+		"get_portfolio":    true,
 	}
 	for _, tool := range listed.Tools {
 		schema, ok := tool.InputSchema.(map[string]any)
@@ -221,8 +222,9 @@ func TestAllToolsPublishStrictSchemasAndSafetyAnnotations(t *testing.T) {
 }
 
 func TestUnconnectedCapabilitiesFailClosedWithModeEnvelope(t *testing.T) {
-	// Live mode has no execution adapter: place_order must fail closed
-	// with capability_not_ready even when credentials are present.
+	// Live mode requires an explicit arm step before any write: an
+	// un-armed process must refuse place_order with live_trading_not_armed
+	// even when credentials are present.
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	clientSession := connectInMemoryWithEnv(t, ctx, config.ModeLive)
@@ -234,13 +236,14 @@ func TestUnconnectedCapabilitiesFailClosedWithModeEnvelope(t *testing.T) {
 			"count": "1.00", "price": "0.50",
 			"time_in_force":              "good_till_canceled",
 			"self_trade_prevention_type": "maker",
+			"client_order_id":            "test-coid",
 		},
 	})
 	if err != nil {
 		t.Fatalf("CallTool(): %v", err)
 	}
 	if !result.IsError {
-		t.Fatal("unconnected capability reported success")
+		t.Fatal("un-armed write reported success")
 	}
 	structured, ok := result.StructuredContent.(map[string]any)
 	if !ok {
@@ -250,7 +253,7 @@ func TestUnconnectedCapabilitiesFailClosedWithModeEnvelope(t *testing.T) {
 		t.Fatalf("unexpected failure envelope: %#v", structured)
 	}
 	errorValue, ok := structured["error"].(map[string]any)
-	if !ok || errorValue["code"] != "capability_not_ready" {
+	if !ok || errorValue["code"] != "live_trading_not_armed" {
 		t.Fatalf("unexpected structured error: %#v", structured["error"])
 	}
 }
@@ -310,8 +313,8 @@ func TestStreamableHTTPNegotiation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListTools(): %v", err)
 	}
-	if len(listed.Tools) != 11 {
-		t.Fatalf("HTTP tool count = %d, want 11", len(listed.Tools))
+	if len(listed.Tools) != 12 {
+		t.Fatalf("HTTP tool count = %d, want 12", len(listed.Tools))
 	}
 }
 

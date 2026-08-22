@@ -202,6 +202,25 @@ tools:
           required: true
           description: Exact Kalshi market ticker.
 
+  - name: arm_live_trading
+    title: Arm Live Trading
+    handler: ArmLiveTrading
+    safety: trade
+    description: Arm or disarm this kernel process for live order placement. Kernel-local control with no exchange side effects; paper mode is unaffected and paper trading never requires arming. Requires repeating the exact startup acknowledgement phrase as a deliberate second act; config alone never authorizes trading.
+    sources:
+      - spec: trade
+        operation_id: CreateOrderV2
+    input:
+      properties:
+        - name: acknowledgement
+          type: string
+          required: true
+          description: Must exactly equal the startup acknowledgement literal (I_UNDERSTAND_THIS_TRADES_REAL_MONEY).
+        - name: arm
+          type: boolean
+          required: true
+          description: True to arm, false to disarm.
+
   - name: get_portfolio
     title: Get Portfolio
     handler: GetPortfolio

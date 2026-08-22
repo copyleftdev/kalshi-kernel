@@ -108,10 +108,22 @@ type typedError struct {
 func (e *typedError) Error() string { return e.code + ": " + e.message }
 
 // Code maps an error to its typed code for mcptools.Response.Error.
+// TypedError is an exported typed error for cross-package construction.
+type TypedError struct {
+	Code    string
+	Message string
+}
+
+func (e *TypedError) Error() string { return e.Code + ": " + e.Message }
+
 func Code(err error) string {
 	var te *typedError
 	if errors.As(err, &te) {
 		return te.code
+	}
+	var xte *TypedError
+	if errors.As(err, &xte) {
+		return xte.Code
 	}
 	return "internal_error"
 }
@@ -135,13 +147,13 @@ func (c *Client) sign(timestampMs int64, method, pathWithQuery string) (string, 
 }
 
 func (c *Client) get(ctx context.Context, path string, query url.Values, out any) error {
-	return c.do(ctx, http.MethodGet, path, query, out)
+	return c.do(ctx, http.MethodGet, path, query, "", out)
 }
 
 // do performs one signed request. The signature base uses the path with
 // query string for GET and the bare path for body-carrying methods,
 // matching the Kalshi signing contract.
-func (c *Client) do(ctx context.Context, method, path string, query url.Values, out any) error {
+func (c *Client) do(ctx context.Context, method, path string, query url.Values, body string, out any) error {
 	full := path
 	if len(query) > 0 {
 		full += "?" + query.Encode()
@@ -151,9 +163,16 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 	if err != nil {
 		return err
 	}
-	req, rerr := http.NewRequestWithContext(ctx, method, c.baseURL+full, nil)
+	var reader io.Reader
+	if body != "" {
+		reader = strings.NewReader(body)
+	}
+	req, rerr := http.NewRequestWithContext(ctx, method, c.baseURL+full, reader)
 	if rerr != nil {
 		return typed(ErrBadInput, "request construction failed")
+	}
+	if body != "" {
+		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("KALSHI-ACCESS-KEY", c.apiKeyID)
@@ -165,7 +184,7 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 		return typed(ErrUnreachable, "exchange unreachable: "+err.Error())
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
 	if err != nil {
 		return typed(ErrBadPayload, "reading response body failed")
 	}
@@ -175,10 +194,12 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden:
 		return typed(ErrUnauthed, "exchange rejected credentials; check KALSHI_API_KEY_ID and key validity")
 	case resp.StatusCode >= 400:
-		return typed(ErrUpstream, fmt.Sprintf("exchange returned %d: %.512s", resp.StatusCode, string(body)))
+		return typed(ErrUpstream, fmt.Sprintf("exchange returned %d: %.512s", resp.StatusCode, string(respBody)))
 	}
-	if err := json.Unmarshal(body, out); err != nil {
-		return typed(ErrBadPayload, "response is not valid expected JSON: "+err.Error())
+	if out != nil {
+		if err := json.Unmarshal(respBody, out); err != nil {
+			return typed(ErrBadPayload, "response is not valid expected JSON: "+err.Error())
+		}
 	}
 	return nil
 }
@@ -431,7 +452,7 @@ func (c *Client) CancelOrder(ctx context.Context, orderID, marketTicker string) 
 		ReducedBy     json.Number `json:"reduced_by"`
 		TsMs          int64       `json:"ts_ms"`
 	}
-	derr := c.do(ctx, http.MethodDelete, path, q, &raw)
+	derr := c.do(ctx, http.MethodDelete, path, q, "", &raw)
 	if derr == nil {
 		return &CancelResult{
 			OrderID:       raw.OrderID,
