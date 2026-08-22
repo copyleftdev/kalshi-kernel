@@ -5,6 +5,7 @@ import (
 
 	"github.com/copyleftdev/kalshi-kernel/internal/config"
 	"github.com/copyleftdev/kalshi-kernel/internal/gen/mcptools"
+	"github.com/copyleftdev/kalshi-kernel/internal/kernel/ledger"
 	"github.com/copyleftdev/kalshi-kernel/internal/kernel/marketdata"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -18,6 +19,9 @@ type Handler struct {
 	// mdClient is a lazily-initialized read-only market-data client.
 	// It holds no credentials and performs no retries.
 	mdClient *marketdata.Client
+
+	// paper is the lazily-initialized simulated book (paper mode only).
+	paper *ledger.Ledger
 }
 
 func New(config config.Config) *Handler {
@@ -41,44 +45,13 @@ func (handler *Handler) KernelStatus(
 		Data: map[string]any{
 			"backend_ready":       false,
 			"market_data_ready":   true,
+			"paper_trading_ready": handler.config.Mode == config.ModePaper,
 			"live_mode_requested": handler.config.Mode == config.ModeLive,
 			"live_trading_armed":  false,
 			"generated_from_spec": true,
-			"reason":              "read-only market data is live via public REST; execution adapters are not connected yet",
+			"reason":              "read-only market data and paper trading are live; live execution adapters are not connected",
 		},
 	}, nil
-}
-
-func (handler *Handler) GetPortfolio(
-	context.Context,
-	*mcp.CallToolRequest,
-	mcptools.GetPortfolioInput,
-) (*mcp.CallToolResult, mcptools.Response, error) {
-	return handler.notReady("get_portfolio")
-}
-
-func (handler *Handler) PlaceOrder(
-	context.Context,
-	*mcp.CallToolRequest,
-	mcptools.PlaceOrderInput,
-) (*mcp.CallToolResult, mcptools.Response, error) {
-	return handler.notReady("place_order")
-}
-
-func (handler *Handler) AmendOrder(
-	context.Context,
-	*mcp.CallToolRequest,
-	mcptools.AmendOrderInput,
-) (*mcp.CallToolResult, mcptools.Response, error) {
-	return handler.notReady("amend_order")
-}
-
-func (handler *Handler) CancelOrder(
-	context.Context,
-	*mcp.CallToolRequest,
-	mcptools.CancelOrderInput,
-) (*mcp.CallToolResult, mcptools.Response, error) {
-	return handler.notReady("cancel_order")
 }
 
 func (handler *Handler) notReady(tool string) (*mcp.CallToolResult, mcptools.Response, error) {

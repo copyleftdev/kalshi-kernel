@@ -218,13 +218,20 @@ func TestAllToolsPublishStrictSchemasAndSafetyAnnotations(t *testing.T) {
 }
 
 func TestUnconnectedCapabilitiesFailClosedWithModeEnvelope(t *testing.T) {
+	// Live mode has no execution adapter: place_order must fail closed
+	// with capability_not_ready even when credentials are present.
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	clientSession := connectInMemory(t, ctx, config.ModePaper)
+	clientSession := connectInMemoryWithEnv(t, ctx, config.ModeLive)
 
 	result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
-		Name:      "get_portfolio",
-		Arguments: map[string]any{"product": "event"},
+		Name: "place_order",
+		Arguments: map[string]any{
+			"product": "event", "ticker": "EXAMPLE", "side": "bid",
+			"count": "1.00", "price": "0.50",
+			"time_in_force":           "good_till_canceled",
+			"self_trade_prevention_type": "maker",
+		},
 	})
 	if err != nil {
 		t.Fatalf("CallTool(): %v", err)
@@ -236,7 +243,7 @@ func TestUnconnectedCapabilitiesFailClosedWithModeEnvelope(t *testing.T) {
 	if !ok {
 		t.Fatalf("structured content type = %T", result.StructuredContent)
 	}
-	if structured["mode"] != "paper" || structured["ok"] != false {
+	if structured["mode"] != "live" || structured["ok"] != false {
 		t.Fatalf("unexpected failure envelope: %#v", structured)
 	}
 	errorValue, ok := structured["error"].(map[string]any)
@@ -321,6 +328,13 @@ func connectInMemory(t *testing.T, ctx context.Context, mode config.Mode) *mcp.C
 	}
 	t.Cleanup(func() { _ = clientSession.Close() })
 	return clientSession
+}
+
+func connectInMemoryWithEnv(t *testing.T, ctx context.Context, mode config.Mode) *mcp.ClientSession {
+	// Same as connectInMemory but for live-mode handlers that would
+	// consult env credentials; the handler under test never reaches the
+	// network because execution adapters are unconnected.
+	return connectInMemory(t, ctx, mode)
 }
 
 func without(source map[string]any, key string) map[string]any {
