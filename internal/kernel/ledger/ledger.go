@@ -244,8 +244,8 @@ type FillRequest struct {
 
 // FillResult reports what happened, including idempotent replays.
 type FillResult struct {
-	Fill      *Fill `json:"fill,omitempty"`
-	Replayed  bool  `json:"replayed,omitempty"`
+	Fill      *Fill  `json:"fill,omitempty"`
+	Replayed  bool   `json:"replayed,omitempty"`
 	CashAfter string `json:"cash_after"`
 }
 
