@@ -55,6 +55,10 @@ var SourcesByTool = map[string][]Source{
 	"get_trades": {
 		{Spec: "trade", OperationID: "GetTrades", Channel: ""},
 	},
+	"get_last": {
+		{Spec: "trade", OperationID: "GetMarket", Channel: ""},
+		{Spec: "perps", OperationID: "GetMarginMarket", Channel: ""},
+	},
 	"get_portfolio": {
 		{Spec: "trade", OperationID: "GetBalance", Channel: ""},
 		{Spec: "trade", OperationID: "GetPositions", Channel: ""},
@@ -127,6 +131,12 @@ type GetTradesInput struct {
 	Cursor *string `json:"cursor,omitempty" jsonschema:"Pagination cursor returned by a previous call."`
 }
 
+// GetLastInput is generated from specs/mcp-tools.yaml.
+type GetLastInput struct {
+	Product string `json:"product" jsonschema:"Product family containing the ticker. Allowed values: event, perp."`
+	Ticker  string `json:"ticker" jsonschema:"Exact Kalshi market ticker."`
+}
+
 // GetPortfolioInput is generated from specs/mcp-tools.yaml.
 type GetPortfolioInput struct {
 	Product    string `json:"product" jsonschema:"Product family to report. Allowed values: event, perp."`
@@ -178,6 +188,7 @@ type Handler interface {
 	GetOrderbook(context.Context, *mcp.CallToolRequest, GetOrderbookInput) (*mcp.CallToolResult, Response, error)
 	GetCandles(context.Context, *mcp.CallToolRequest, GetCandlesInput) (*mcp.CallToolResult, Response, error)
 	GetTrades(context.Context, *mcp.CallToolRequest, GetTradesInput) (*mcp.CallToolResult, Response, error)
+	GetLast(context.Context, *mcp.CallToolRequest, GetLastInput) (*mcp.CallToolResult, Response, error)
 	GetPortfolio(context.Context, *mcp.CallToolRequest, GetPortfolioInput) (*mcp.CallToolResult, Response, error)
 	PlaceOrder(context.Context, *mcp.CallToolRequest, PlaceOrderInput) (*mcp.CallToolResult, Response, error)
 	AmendOrder(context.Context, *mcp.CallToolRequest, AmendOrderInput) (*mcp.CallToolResult, Response, error)
@@ -387,6 +398,32 @@ func Register(server *mcp.Server, handler Handler) {
 			"required": []string{"ticker"},
 		},
 	}, handler.GetTrades)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_last",
+		Description: "Get a compact live pricing snapshot for one event-contract or perpetual market - last/mark price, best bid and ask, 24h volume, and status. Prices stay fixed-point strings.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Get Last Quote",
+			ReadOnlyHint:    true,
+			DestructiveHint: boolPointer(false),
+			OpenWorldHint:   boolPointer(true),
+		},
+		InputSchema: map[string]any{
+			"type":                 "object",
+			"additionalProperties": false,
+			"properties": map[string]any{
+				"product": map[string]any{
+					"type":        "string",
+					"description": "Product family containing the ticker. Allowed values: event, perp.",
+
+					"enum": []string{"event", "perp"},
+				}, "ticker": map[string]any{
+					"type":        "string",
+					"description": "Exact Kalshi market ticker.",
+				},
+			},
+			"required": []string{"product", "ticker"},
+		},
+	}, handler.GetLast)
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_portfolio",
 		Description: "Return balances, positions, resting orders, and recent fills from the selected live or paper ledger.",
