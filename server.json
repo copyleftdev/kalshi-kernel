@@ -3,7 +3,7 @@
   "name": "io.github.copyleftdev/kalshi-kernel",
   "title": "Kalshi Kernel",
   "description": "Unofficial safety-focused MCP server for Kalshi market data and explicitly authorized trading",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "repository": {
     "url": "https://github.com/copyleftdev/kalshi-kernel",
     "source": "github"
@@ -12,8 +12,7 @@
   "packages": [
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/copyleftdev/kalshi-kernel:0.1.0",
-      "version": "0.1.0",
+      "identifier": "ghcr.io/copyleftdev/kalshi-kernel:0.1.1",
       "transport": {
         "type": "stdio"
       },

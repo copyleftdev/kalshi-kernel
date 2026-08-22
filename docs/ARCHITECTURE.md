@@ -54,7 +54,7 @@ boundaries:
 5. Results use a stable envelope containing mode, `ok`, data, and structured
    error information.
 
-Only step 1–3 and `kernel_status` are operational in version 0.1.0. No exchange
+Only step 1–3 and `kernel_status` are operational in version 0.1.1. No exchange
 adapter or paper ledger is connected.
 
 ## Execution-mode invariant

@@ -8,6 +8,8 @@
 *.p12
 *.pfx
 coverage.out
+/.mcpregistry_github_token
+/.mcpregistry_registry_token
 
 # Fetched dynamically from docs.kalshi.com. These contract bodies include
 # proprietary-licensed material and must not be committed or redistributed.

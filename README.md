@@ -10,7 +10,7 @@ source and container releases use `github.com/copyleftdev/kalshi-kernel` and
 `ghcr.io/copyleftdev/kalshi-kernel` respectively.
 
 > [!CAUTION]
-> **Pre-release software—not ready for trading.** Version `0.1.0` is a
+> **Pre-release software—not ready for trading.** Version `0.1.1` is a
 > conformance-tested scaffold. Only `kernel_status` is operational. Market-data,
 > portfolio, paper-trading, and live-trading adapters are not connected and fail
 > closed with `capability_not_ready`.
@@ -42,7 +42,7 @@ The design priorities are:
 
 ## Current status
 
-| Area | Status in 0.1.0 |
+| Area | Status in 0.1.1 |
 | --- | --- |
 | MCP stdio transport | Working |
 | MCP schemas, titles, annotations, and instructions | Working |

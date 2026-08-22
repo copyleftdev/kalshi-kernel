@@ -6,7 +6,7 @@ legal review, and explicit release authorization.
 
 ## Release posture
 
-Version `0.1.0` is a pre-release scaffold. It must not be submitted to a public
+Version `0.1.1` is a pre-release scaffold. It must not be submitted to a public
 directory as a functional trading connector because only `kernel_status` is
 operational. Registry metadata in this repository is preparatory and does not
 claim review, approval, endorsement, or availability.
@@ -58,7 +58,7 @@ All boxes must be resolved before a public directory submission:
 ## Official MCP Registry
 
 The registry is a metadata registry; it does not host packages. `server.json`
-describes the intended `ghcr.io/copyleftdev/kalshi-kernel:0.1.0` OCI artifact.
+describes the intended `ghcr.io/copyleftdev/kalshi-kernel:0.1.1` OCI artifact.
 The image must exist publicly and carry the matching
 `io.modelcontextprotocol.server.name` label before publication.
 
@@ -67,7 +67,7 @@ Release sequence:
 1. Make the repository public at the URL declared in `server.json`.
 2. Resolve the third-party specification and publisher-identity blockers.
 3. Run `make public-check`, `make release-test`, and `make upstream-check`.
-4. Tag the exact reviewed commit as `v0.1.0`.
+4. Tag the exact reviewed commit as `v0.1.1`.
 5. Verify release checksums, provenance, OCI label, platforms, and stdio startup.
 6. Authenticate with the official `mcp-publisher` using the GitHub identity that
    owns the `io.github.copyleftdev/*` namespace.

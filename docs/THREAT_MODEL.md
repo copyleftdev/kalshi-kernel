@@ -87,7 +87,7 @@ every tool call, encrypted storage, deletion/retention, request limits, audit
 access controls, cross-tenant tests, and incident response. A process-level
 environment credential model is unsuitable for a public multi-user service.
 
-## Explicitly out of scope for 0.1.0
+## Explicitly out of scope for 0.1.1
 
 - claims of live-trading safety or availability;
 - custody of user credentials by a project-operated service;

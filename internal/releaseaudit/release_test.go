@@ -32,7 +32,6 @@ type registryManifest struct {
 	Packages []struct {
 		RegistryType string `json:"registryType"`
 		Identifier   string `json:"identifier"`
-		Version      string `json:"version"`
 		Transport    struct {
 			Type string `json:"type"`
 		} `json:"transport"`
@@ -106,7 +105,7 @@ func TestReleaseVersionsAndRegistryIdentityStayAligned(t *testing.T) {
 		t.Fatalf("server.json package count = %d, want 1", len(registry.Packages))
 	}
 	pack := registry.Packages[0]
-	if pack.RegistryType != "oci" || pack.Transport.Type != "stdio" || pack.Version != version {
+	if pack.RegistryType != "oci" || pack.Transport.Type != "stdio" {
 		t.Errorf("unexpected registry package: %#v", pack)
 	}
 	wantImage := "ghcr.io/copyleftdev/kalshi-kernel:" + version

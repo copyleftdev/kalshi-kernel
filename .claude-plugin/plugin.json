@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "kalshi-kernel",
   "displayName": "Kalshi Kernel",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Unofficial safety-focused MCP boundary for Kalshi market and trading workflows",
   "author": {
     "name": "CopyleftDev",
