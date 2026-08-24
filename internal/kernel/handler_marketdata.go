@@ -235,6 +235,25 @@ func (handler *Handler) GetLast(
 	})
 }
 
+// GetWeatherIndex reads the Kalshi-computed city temperature index. Input
+// validation (window exclusivity) is local-first via the marketdata client.
+func (handler *Handler) GetWeatherIndex(
+	ctx context.Context,
+	req *mcp.CallToolRequest,
+	input mcptools.GetWeatherIndexInput,
+) (*mcp.CallToolResult, mcptools.Response, error) {
+	index, err := handler.marketData().GetWeatherIndex(ctx, input.City, input.From, input.To, input.LastSec, input.Detailed != nil && *input.Detailed)
+	if err != nil {
+		return handler.respondError("get_weather_index", err)
+	}
+	return handler.respond(map[string]any{
+		"city":           index.City,
+		"units":          index.Units,
+		"config_version": index.ConfigVersion,
+		"timeseries":     index.Timeseries,
+	})
+}
+
 func deref(s *string) string {
 	if s == nil {
 		return ""

@@ -59,6 +59,9 @@ var SourcesByTool = map[string][]Source{
 		{Spec: "trade", OperationID: "GetMarket", Channel: ""},
 		{Spec: "perps", OperationID: "GetMarginMarket", Channel: ""},
 	},
+	"get_weather_index": {
+		{Spec: "trade", OperationID: "GetWeatherIndex", Channel: ""},
+	},
 	"arm_live_trading": {
 		{Spec: "trade", OperationID: "CreateOrderV2", Channel: ""},
 	},
@@ -140,6 +143,15 @@ type GetLastInput struct {
 	Ticker  string `json:"ticker" jsonschema:"Exact Kalshi market ticker."`
 }
 
+// GetWeatherIndexInput is generated from specs/mcp-tools.yaml.
+type GetWeatherIndexInput struct {
+	City     string `json:"city" jsonschema:"Index city ID (for example miami or lax)."`
+	From     *int64 `json:"from,omitempty" jsonschema:"Window start, unix milliseconds, inclusive. Must be paired with to. Defaults to to minus 24 hours."`
+	To       *int64 `json:"to,omitempty" jsonschema:"Window end, unix milliseconds, inclusive. Defaults to now."`
+	LastSec  *int64 `json:"last_sec,omitempty" jsonschema:"Trailing window in seconds; equivalent to from=now-last_sec, to=now. Mutually exclusive with from/to."`
+	Detailed *bool  `json:"detailed,omitempty" jsonschema:"Include per-station audit readings with quality-control disposition on every point."`
+}
+
 // ArmLiveTradingInput is generated from specs/mcp-tools.yaml.
 type ArmLiveTradingInput struct {
 	Acknowledgement string `json:"acknowledgement" jsonschema:"Must exactly equal the startup acknowledgement literal (I_UNDERSTAND_THIS_TRADES_REAL_MONEY)."`
@@ -198,6 +210,7 @@ type Handler interface {
 	GetCandles(context.Context, *mcp.CallToolRequest, GetCandlesInput) (*mcp.CallToolResult, Response, error)
 	GetTrades(context.Context, *mcp.CallToolRequest, GetTradesInput) (*mcp.CallToolResult, Response, error)
 	GetLast(context.Context, *mcp.CallToolRequest, GetLastInput) (*mcp.CallToolResult, Response, error)
+	GetWeatherIndex(context.Context, *mcp.CallToolRequest, GetWeatherIndexInput) (*mcp.CallToolResult, Response, error)
 	ArmLiveTrading(context.Context, *mcp.CallToolRequest, ArmLiveTradingInput) (*mcp.CallToolResult, Response, error)
 	GetPortfolio(context.Context, *mcp.CallToolRequest, GetPortfolioInput) (*mcp.CallToolResult, Response, error)
 	PlaceOrder(context.Context, *mcp.CallToolRequest, PlaceOrderInput) (*mcp.CallToolResult, Response, error)
@@ -434,6 +447,39 @@ func Register(server *mcp.Server, handler Handler) {
 			"required": []string{"product", "ticker"},
 		},
 	}, handler.GetLast)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_weather_index",
+		Description: "Read the Kalshi-computed city temperature index - the canonical minute-resolution Fahrenheit series behind hourly temperature markets. Minute points where index quorum failed are real gaps and are never returned as points. Values stay fixed-point strings.",
+		Annotations: &mcp.ToolAnnotations{
+			Title:           "Get Weather Index",
+			ReadOnlyHint:    true,
+			DestructiveHint: boolPointer(false),
+			OpenWorldHint:   boolPointer(true),
+		},
+		InputSchema: map[string]any{
+			"type":                 "object",
+			"additionalProperties": false,
+			"properties": map[string]any{
+				"city": map[string]any{
+					"type":        "string",
+					"description": "Index city ID (for example miami or lax).",
+				}, "from": map[string]any{
+					"type":        "integer",
+					"description": "Window start, unix milliseconds, inclusive. Must be paired with to. Defaults to to minus 24 hours.",
+				}, "to": map[string]any{
+					"type":        "integer",
+					"description": "Window end, unix milliseconds, inclusive. Defaults to now.",
+				}, "last_sec": map[string]any{
+					"type":        "integer",
+					"description": "Trailing window in seconds; equivalent to from=now-last_sec, to=now. Mutually exclusive with from/to.",
+				}, "detailed": map[string]any{
+					"type":        "boolean",
+					"description": "Include per-station audit readings with quality-control disposition on every point.",
+				},
+			},
+			"required": []string{"city"},
+		},
+	}, handler.GetWeatherIndex)
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "arm_live_trading",
 		Description: "Arm or disarm this kernel process for live order placement. Kernel-local control with no exchange side effects; paper mode is unaffected and paper trading never requires arming. Requires repeating the exact startup acknowledgement phrase as a deliberate second act; config alone never authorizes trading.",

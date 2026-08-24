@@ -202,6 +202,33 @@ tools:
           required: true
           description: Exact Kalshi market ticker.
 
+  - name: get_weather_index
+    title: Get Weather Index
+    handler: GetWeatherIndex
+    safety: read
+    description: Read the Kalshi-computed city temperature index - the canonical minute-resolution Fahrenheit series behind hourly temperature markets. Minute points where index quorum failed are real gaps and are never returned as points. Values stay fixed-point strings.
+    sources:
+      - spec: trade
+        operation_id: GetWeatherIndex
+    input:
+      properties:
+        - name: city
+          type: string
+          required: true
+          description: Index city ID (for example miami or lax).
+        - name: from
+          type: integer64
+          description: Window start, unix milliseconds, inclusive. Must be paired with to. Defaults to to minus 24 hours.
+        - name: to
+          type: integer64
+          description: Window end, unix milliseconds, inclusive. Defaults to now.
+        - name: last_sec
+          type: integer64
+          description: Trailing window in seconds; equivalent to from=now-last_sec, to=now. Mutually exclusive with from/to.
+        - name: detailed
+          type: boolean
+          description: Include per-station audit readings with quality-control disposition on every point.
+
   - name: arm_live_trading
     title: Arm Live Trading
     handler: ArmLiveTrading

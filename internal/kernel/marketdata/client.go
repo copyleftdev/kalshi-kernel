@@ -497,6 +497,68 @@ func (c *Client) GetEventTrades(ctx context.Context, opt TradesOptions) (*Trades
 	return page, nil
 }
 
+// WeatherIndexStationReading is one member station's reported reading and QC
+// disposition, exactly as upstream emits it (only with detailed=true).
+// temp_f/source are pointers: absent members carry no reading.
+type WeatherIndexStationReading struct {
+	StationID string   `json:"station_id"`
+	Code      string   `json:"code"`
+	Source    *string  `json:"source,omitempty"`
+	TempF     *float64 `json:"temp_f,omitempty"`
+}
+
+// WeatherIndexPoint is one minute of the city temperature index. v and
+// contributors are pointers: `incomplete` points have no canonical value and
+// no contributor count — gaps are real gaps, never zero-filled.
+type WeatherIndexPoint struct {
+	T            int64                        `json:"t"`
+	V            *float64                     `json:"v,omitempty"`
+	Status       string                       `json:"status"`
+	Contributors *int                         `json:"contributors,omitempty"`
+	Stations     []WeatherIndexStationReading `json:"stations,omitempty"`
+}
+
+// WeatherIndex is the Kalshi-computed city temperature index response.
+type WeatherIndex struct {
+	City          string              `json:"city"`
+	ConfigVersion string              `json:"config_version,omitempty"`
+	Units         string              `json:"units"`
+	Timeseries    []WeatherIndexPoint `json:"timeseries"`
+}
+
+// GetWeatherIndex fetches the Kalshi-computed city temperature index via
+// GET /live_data/weather/{city}. Exactly one of lastSec or the
+// from/to pair may be supplied; from without to (or vice versa) is invalid.
+func (c *Client) GetWeatherIndex(ctx context.Context, city string, from, to, lastSec *int64, detailed bool) (*WeatherIndex, error) {
+	if city == "" {
+		return nil, typed(errBadInput, "city is required")
+	}
+	if lastSec != nil {
+		if from != nil || to != nil {
+			return nil, typed(errBadInput, "last_sec is mutually exclusive with from/to")
+		}
+	} else if (from == nil) != (to == nil) {
+		return nil, typed(errBadInput, "from and to must be supplied together")
+	}
+	query := url.Values{}
+	if lastSec != nil {
+		query.Set("last_sec", strconv.FormatInt(*lastSec, 10))
+	}
+	if from != nil && to != nil {
+		query.Set("from", strconv.FormatInt(*from, 10))
+		query.Set("to", strconv.FormatInt(*to, 10))
+	}
+	if detailed {
+		query.Set("detailed", "true")
+	}
+	var index WeatherIndex
+	path := "/trade-api/v2/live_data/weather/" + url.PathEscape(city)
+	if err := get(ctx, c, path, query, &index); err != nil {
+		return nil, err
+	}
+	return &index, nil
+}
+
 // LastQuote is a compact live pricing snapshot for one market. Every
 // price/size field is the fixed-point string exactly as upstream emits it.
 type LastQuote struct {
