@@ -7,7 +7,8 @@
 # Kalshi Kernel
 
 An unofficial, safety-focused Model Context Protocol (MCP) server for Kalshi
-event contracts and perpetual markets. The server is designed for agent
+event contracts and perpetual markets. This is a **pre-release** project that
+is **not ready for trading**. The server is designed for agent
 harnesses such as Hermes and exposes a deliberately small tool surface generated
 from Kalshi's published API contracts.
 
