@@ -1,7 +1,7 @@
 version: 1
 server:
   name: kalshi-kernel
-  version: 0.1.1
+  version: 0.1.2
   description: Safety-focused Kalshi event-contract and perpetuals trading kernel.
 
 # This is deliberately a curated, intent-level surface. The OpenAPI contracts remain

@@ -10,7 +10,7 @@ import (
 
 const (
 	ServerName        = "kalshi-kernel"
-	ServerVersion     = "0.1.1"
+	ServerVersion     = "0.1.2"
 	ServerDescription = "Safety-focused Kalshi event-contract and perpetuals trading kernel."
 )
 

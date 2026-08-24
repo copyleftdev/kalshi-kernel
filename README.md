@@ -7,7 +7,8 @@
 # Kalshi Kernel
 
 An unofficial, safety-focused Model Context Protocol (MCP) server for Kalshi
-event contracts and perpetual markets. The server is designed for agent
+event contracts and perpetual markets. This is a **pre-release** project that
+is **not ready for trading**. The server is designed for agent
 harnesses such as Hermes and exposes a deliberately small tool surface generated
 from Kalshi's published API contracts.
 
@@ -16,12 +17,12 @@ source and container releases use `github.com/copyleftdev/kalshi-kernel` and
 `ghcr.io/copyleftdev/kalshi-kernel` respectively.
 
 > [!CAUTION]
-> **Unreleased code that can submit real orders.** The published `v0.1.1` tag is
-> a conformance-tested scaffold, but the current `main` branch contains
-> post-`v0.1.1` market-data, paper-trading, and live event-contract adapters.
-> Configured live mode can place, amend, and cancel real orders. Review the exact
+> **Pre-release software that can submit real orders.** Published tags are
+> conformance-tested scaffolds; the current `main` branch adds market-data,
+> paper-trading, and live event-contract adapters. Configured live mode can
+> place, amend, and cancel real orders. Review the exact
 > commit, configuration, tests, and limits before running it with credentials;
-> do not infer readiness from the still-`0.1.1` version string.
+> do not infer readiness from the version string.
 
 > [!IMPORTANT]
 > This community project is not an official Kalshi product and is not affiliated
