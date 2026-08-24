@@ -206,7 +206,7 @@ tools:
     title: Get Weather Index
     handler: GetWeatherIndex
     safety: read
-    description: Read the Kalshi-computed city temperature index - the canonical minute-resolution Fahrenheit series behind hourly temperature markets. Minute points where index quorum failed are real gaps and are never returned as points. Values stay fixed-point strings.
+    description: Read the Kalshi-computed city temperature index - the canonical minute-resolution Fahrenheit series behind hourly temperature markets. Minutes where the index quorum has not yet settled are returned as points with status incomplete that omit the canonical value and contributor count; minutes where quorum failed carry no point at all. Values stay fixed-point strings.
     sources:
       - spec: trade
         operation_id: GetWeatherIndex

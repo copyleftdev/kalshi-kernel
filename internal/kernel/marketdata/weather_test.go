@@ -7,7 +7,6 @@ import (
 )
 
 func i64(v int64) *int64 { return &v }
-func b(v bool) *bool     { return &v }
 
 func TestGetWeatherIndexProjectsTimeseries(t *testing.T) {
 	client := fixtureServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -24,8 +23,8 @@ func TestGetWeatherIndexProjectsTimeseries(t *testing.T) {
 		_, _ = w.Write([]byte(`{
 			"city":"miami","config_version":"miami-temperature-v1.0","units":"fahrenheit",
 			"timeseries":[
-				{"t":1787600000000,"v":91.37,"status":"normal","contributors":5,
-				 "stations":[{"station_id":"KMIA1M","code":"ok","source":"hf_asos","temp_f":91.4}]},
+				{"t":1787600000000,"v":91.40,"status":"normal","contributors":5,
+				 "stations":[{"station_id":"KMIA1M","code":"ok","source":"hf_asos","temp_f":91.40}]},
 				{"t":1787600060000,"status":"incomplete",
 				 "stations":[{"station_id":"KMIA1M","code":"pending","source":"hf_asos","temp_f":91.2}]},
 				{"t":1787600120000,"v":91.44,"status":"degraded","contributors":4,
@@ -44,8 +43,11 @@ func TestGetWeatherIndexProjectsTimeseries(t *testing.T) {
 		t.Fatalf("want 3 points, got %d", len(idx.Timeseries))
 	}
 	p0 := idx.Timeseries[0]
-	if p0.V == nil || *p0.V != 91.37 || p0.Status != "normal" || p0.Contributors == nil || *p0.Contributors != 5 {
+	if p0.V == nil || p0.V.String() != "91.40" || p0.Status != "normal" || p0.Contributors == nil || *p0.Contributors != 5 {
 		t.Fatalf("point 0 wrong: %+v", p0)
+	}
+	if len(p0.Stations) != 1 || p0.Stations[0].TempF == nil || p0.Stations[0].TempF.String() != "91.40" {
+		t.Fatalf("station temp_f lost fixed-point fidelity: %+v", p0.Stations)
 	}
 	// incomplete point: value and contributors must stay nil (real gap)
 	p1 := idx.Timeseries[1]

@@ -449,7 +449,7 @@ func Register(server *mcp.Server, handler Handler) {
 	}, handler.GetLast)
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_weather_index",
-		Description: "Read the Kalshi-computed city temperature index - the canonical minute-resolution Fahrenheit series behind hourly temperature markets. Minute points where index quorum failed are real gaps and are never returned as points. Values stay fixed-point strings.",
+		Description: "Read the Kalshi-computed city temperature index - the canonical minute-resolution Fahrenheit series behind hourly temperature markets. Minutes where the index quorum has not yet settled are returned as points with status incomplete that omit the canonical value and contributor count; minutes where quorum failed carry no point at all. Values stay fixed-point strings.",
 		Annotations: &mcp.ToolAnnotations{
 			Title:           "Get Weather Index",
 			ReadOnlyHint:    true,

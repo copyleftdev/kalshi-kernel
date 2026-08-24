@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -497,22 +498,38 @@ func (c *Client) GetEventTrades(ctx context.Context, opt TradesOptions) (*Trades
 	return page, nil
 }
 
+// fixedPoint is a JSON number decoded and re-encoded as its exact source
+// token (e.g. 91.40 stays "91.40"), preserving upstream fixed-point fidelity.
+type fixedPoint string
+
+func (f *fixedPoint) UnmarshalJSON(data []byte) error {
+	*f = fixedPoint(strings.TrimSpace(string(data)))
+	return nil
+}
+
+func (f fixedPoint) MarshalJSON() ([]byte, error) {
+	return []byte(f), nil
+}
+
+func (f fixedPoint) String() string { return string(f) }
+
 // WeatherIndexStationReading is one member station's reported reading and QC
 // disposition, exactly as upstream emits it (only with detailed=true).
-// temp_f/source are pointers: absent members carry no reading.
+// temp_f/source are nil: absent members carry no reading.
 type WeatherIndexStationReading struct {
-	StationID string   `json:"station_id"`
-	Code      string   `json:"code"`
-	Source    *string  `json:"source,omitempty"`
-	TempF     *float64 `json:"temp_f,omitempty"`
+	StationID string      `json:"station_id"`
+	Code      string      `json:"code"`
+	Source    *string     `json:"source,omitempty"`
+	TempF     *fixedPoint `json:"temp_f,omitempty"`
 }
 
 // WeatherIndexPoint is one minute of the city temperature index. v and
-// contributors are pointers: `incomplete` points have no canonical value and
-// no contributor count — gaps are real gaps, never zero-filled.
+// contributors are nil on `incomplete` points, which have no canonical value
+// and no contributor count — they are returned as points but never
+// zero-filled. Minutes where quorum failed carry no point at all.
 type WeatherIndexPoint struct {
 	T            int64                        `json:"t"`
-	V            *float64                     `json:"v,omitempty"`
+	V            *fixedPoint                  `json:"v,omitempty"`
 	Status       string                       `json:"status"`
 	Contributors *int                         `json:"contributors,omitempty"`
 	Stations     []WeatherIndexStationReading `json:"stations,omitempty"`
