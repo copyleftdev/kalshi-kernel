@@ -252,7 +252,7 @@ func TestCuratedMCPSurfaceAlignsWithUpstreamOperationsAndChannels(t *testing.T) 
 		"perps_ws":       loadYAML[asyncAPIDocument](t, "perps_ws.yaml").Channels,
 	}
 
-	wantTools := []string{"amend_order", "arm_live_trading", "cancel_order", "get_candles", "get_last", "get_market", "get_orderbook", "get_portfolio", "get_trades", "kernel_status", "place_order", "search_markets"}
+	wantTools := []string{"amend_order", "arm_live_trading", "cancel_order", "get_candles", "get_last", "get_market", "get_orderbook", "get_portfolio", "get_trades", "get_weather_index", "kernel_status", "place_order", "search_markets"}
 	var gotTools []string
 	seenHandlers := make(map[string]bool)
 	for _, tool := range mcpSpec.Tools {

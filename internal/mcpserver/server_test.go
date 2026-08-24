@@ -38,7 +38,7 @@ func TestPaperServerAdvertisesCuratedToolsAndStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if got, want := len(tools.Tools), 12; got != want {
+	if got, want := len(tools.Tools), 13; got != want {
 		t.Fatalf("tool count = %d, want %d", got, want)
 	}
 
@@ -185,15 +185,16 @@ func TestAllToolsPublishStrictSchemasAndSafetyAnnotations(t *testing.T) {
 		t.Fatalf("ListTools(): %v", err)
 	}
 	readTools := map[string]bool{
-		"kernel_status":    true,
-		"search_markets":   true,
-		"get_market":       true,
-		"get_orderbook":    true,
-		"get_candles":      true,
-		"get_trades":       true,
-		"get_last":         true,
-		"arm_live_trading": false,
-		"get_portfolio":    true,
+		"kernel_status":     true,
+		"search_markets":    true,
+		"get_market":        true,
+		"get_orderbook":     true,
+		"get_candles":       true,
+		"get_trades":        true,
+		"get_last":          true,
+		"get_weather_index": true,
+		"arm_live_trading":  false,
+		"get_portfolio":     true,
 	}
 	for _, tool := range listed.Tools {
 		schema, ok := tool.InputSchema.(map[string]any)
@@ -313,8 +314,8 @@ func TestStreamableHTTPNegotiation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListTools(): %v", err)
 	}
-	if len(listed.Tools) != 12 {
-		t.Fatalf("HTTP tool count = %d, want 12", len(listed.Tools))
+	if len(listed.Tools) != 13 {
+		t.Fatalf("HTTP tool count = %d, want 13", len(listed.Tools))
 	}
 }
 

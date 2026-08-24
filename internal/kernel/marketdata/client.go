@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -495,6 +496,84 @@ func (c *Client) GetEventTrades(ctx context.Context, opt TradesOptions) (*Trades
 		})
 	}
 	return page, nil
+}
+
+// fixedPoint is a JSON number decoded and re-encoded as its exact source
+// token (e.g. 91.40 stays "91.40"), preserving upstream fixed-point fidelity.
+type fixedPoint string
+
+func (f *fixedPoint) UnmarshalJSON(data []byte) error {
+	*f = fixedPoint(strings.TrimSpace(string(data)))
+	return nil
+}
+
+func (f fixedPoint) MarshalJSON() ([]byte, error) {
+	return []byte(f), nil
+}
+
+func (f fixedPoint) String() string { return string(f) }
+
+// WeatherIndexStationReading is one member station's reported reading and QC
+// disposition, exactly as upstream emits it (only with detailed=true).
+// temp_f/source are nil: absent members carry no reading.
+type WeatherIndexStationReading struct {
+	StationID string      `json:"station_id"`
+	Code      string      `json:"code"`
+	Source    *string     `json:"source,omitempty"`
+	TempF     *fixedPoint `json:"temp_f,omitempty"`
+}
+
+// WeatherIndexPoint is one minute of the city temperature index. v and
+// contributors are nil on `incomplete` points, which have no canonical value
+// and no contributor count — they are returned as points but never
+// zero-filled. Minutes where quorum failed carry no point at all.
+type WeatherIndexPoint struct {
+	T            int64                        `json:"t"`
+	V            *fixedPoint                  `json:"v,omitempty"`
+	Status       string                       `json:"status"`
+	Contributors *int                         `json:"contributors,omitempty"`
+	Stations     []WeatherIndexStationReading `json:"stations,omitempty"`
+}
+
+// WeatherIndex is the Kalshi-computed city temperature index response.
+type WeatherIndex struct {
+	City          string              `json:"city"`
+	ConfigVersion string              `json:"config_version,omitempty"`
+	Units         string              `json:"units"`
+	Timeseries    []WeatherIndexPoint `json:"timeseries"`
+}
+
+// GetWeatherIndex fetches the Kalshi-computed city temperature index via
+// GET /live_data/weather/{city}. Exactly one of lastSec or the
+// from/to pair may be supplied; from without to (or vice versa) is invalid.
+func (c *Client) GetWeatherIndex(ctx context.Context, city string, from, to, lastSec *int64, detailed bool) (*WeatherIndex, error) {
+	if city == "" {
+		return nil, typed(errBadInput, "city is required")
+	}
+	if lastSec != nil {
+		if from != nil || to != nil {
+			return nil, typed(errBadInput, "last_sec is mutually exclusive with from/to")
+		}
+	} else if (from == nil) != (to == nil) {
+		return nil, typed(errBadInput, "from and to must be supplied together")
+	}
+	query := url.Values{}
+	if lastSec != nil {
+		query.Set("last_sec", strconv.FormatInt(*lastSec, 10))
+	}
+	if from != nil && to != nil {
+		query.Set("from", strconv.FormatInt(*from, 10))
+		query.Set("to", strconv.FormatInt(*to, 10))
+	}
+	if detailed {
+		query.Set("detailed", "true")
+	}
+	var index WeatherIndex
+	path := "/trade-api/v2/live_data/weather/" + url.PathEscape(city)
+	if err := get(ctx, c, path, query, &index); err != nil {
+		return nil, err
+	}
+	return &index, nil
 }
 
 // LastQuote is a compact live pricing snapshot for one market. Every
