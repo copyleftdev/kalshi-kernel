@@ -1,3 +1,9 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/brand/kernel-lockup-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./assets/brand/kernel-lockup-light.svg">
+  <img src="./assets/brand/kernel-lockup-light.svg" alt="Kernel" width="360">
+</picture>
+
 # Kalshi Kernel
 
 An unofficial, safety-focused Model Context Protocol (MCP) server for Kalshi
@@ -10,16 +16,22 @@ source and container releases use `github.com/copyleftdev/kalshi-kernel` and
 `ghcr.io/copyleftdev/kalshi-kernel` respectively.
 
 > [!CAUTION]
-> **Pre-release software—not ready for trading.** Version `0.1.1` is a
-> conformance-tested scaffold. Only `kernel_status` is operational. Market-data,
-> portfolio, paper-trading, and live-trading adapters are not connected and fail
-> closed with `capability_not_ready`.
+> **Unreleased code that can submit real orders.** The published `v0.1.1` tag is
+> a conformance-tested scaffold, but the current `main` branch contains
+> post-`v0.1.1` market-data, paper-trading, and live event-contract adapters.
+> Configured live mode can place, amend, and cancel real orders. Review the exact
+> commit, configuration, tests, and limits before running it with credentials;
+> do not infer readiness from the still-`0.1.1` version string.
 
 > [!IMPORTANT]
 > This community project is not an official Kalshi product and is not affiliated
 > with, endorsed by, sponsored by, or supported by KalshiEX LLC or its
 > affiliates. “Kalshi” is used only to identify interoperability with Kalshi's
 > published APIs.
+
+The independent Kernel mark follows a conservative interpretation of Kalshi's
+published color, contrast, clear-space, and misuse guidance. It does not use or
+modify Kalshi's logo. See the [visual identity usage rules](assets/brand/README.md).
 
 ## Why this project exists
 
@@ -42,21 +54,27 @@ The design priorities are:
 
 ## Current status
 
-| Area | Status in 0.1.1 |
+The table describes the current `main` branch, not the published `v0.1.1` tag.
+The additions are unreleased and the version metadata has not yet advanced.
+
+| Area | Current behavior and limits |
 | --- | --- |
-| MCP stdio transport | Working |
-| MCP schemas, titles, annotations, and instructions | Working |
-| `kernel_status` | Working |
-| Kalshi REST and WebSocket client generation | Working |
+| MCP stdio transport and generated schemas | Working |
+| Public market data | Event contracts and perpetuals: search, market details, REST order-book snapshots, candles, and last quote. Public trade tape is event-contract only |
+| Paper trading | In-memory balance, positions, fill journal, exact fixed-point fees, and immediate all-or-nothing fills at the current displayed touch |
+| Live portfolio | Authenticated event-contract balance, positions, orders, and fills. Perpetual accounts and non-primary subaccounts are not supported |
+| Live event-contract orders | Place, amend, and cancel are connected to the production API. Place/amend require process-local arming and kernel-side limits; cancel performs a resting-state check and timeout reconciliation |
+| Live perpetual orders | Not implemented |
+| Streaming order-book reconciliation | Not implemented; `get_orderbook` currently returns one public REST snapshot |
+| `kernel_status` | Callable, but some readiness and arming fields still describe the old scaffold and must not be treated as authoritative |
 | Automatic upstream specification freshness gate | Working |
-| Paper ledger and fill simulator | Not implemented |
-| Market-data and portfolio adapters | Not implemented |
-| Live order execution | Not implemented |
 | Production remote HTTPS/OAuth service | Not implemented |
 | Public registry listings | Prepared, not submitted |
 
-Do not advertise, deploy, or rely on this version as a functioning trading
-integration. See [ARCHITECTURE.md](docs/ARCHITECTURE.md),
+Treat the current branch as development software, not as a published or audited
+trading integration. Some design and publication documents still describe the
+`v0.1.1` scaffold; compare them with the implementation before relying on a
+claim. See [ARCHITECTURE.md](docs/ARCHITECTURE.md),
 [THREAT_MODEL.md](docs/THREAT_MODEL.md), and the release gates in
 [PUBLICATION.md](docs/PUBLICATION.md).
 
@@ -64,18 +82,24 @@ integration. See [ARCHITECTURE.md](docs/ARCHITECTURE.md),
 
 | Tool | Class | Current behavior |
 | --- | --- | --- |
-| `kernel_status` | Read-only | Returns mode and backend readiness |
-| `search_markets` | Read-only | Fails closed until adapter exists |
-| `get_market` | Read-only | Fails closed until adapter exists |
-| `get_orderbook` | Read-only | Fails closed until adapter exists |
-| `get_portfolio` | Read-only | Fails closed until adapter exists |
-| `place_order` | Destructive/write | Fails closed until adapter exists |
-| `amend_order` | Destructive/write | Fails closed until adapter exists |
-| `cancel_order` | Destructive/write | Fails closed until adapter exists |
+| `kernel_status` | Read-only | Returns mode and a readiness envelope; newly added backend and arm state are not yet reflected accurately |
+| `search_markets` | Read-only | Searches event-contract or perpetual markets through public REST |
+| `get_market` | Read-only | Returns authoritative metadata for one event-contract or perpetual market |
+| `get_orderbook` | Read-only | Returns a public REST snapshot of yes/no bid levels for either product |
+| `get_candles` | Read-only | Returns 1-, 60-, or 1440-minute event-contract or perpetual OHLC buckets |
+| `get_trades` | Read-only | Returns one cursor-paginated page of the public event-contract trade tape |
+| `get_last` | Read-only | Returns a compact event-contract or perpetual quote and status snapshot |
+| `arm_live_trading` | Destructive/control | Arms or disarms live place/amend calls for this process after an exact second acknowledgement |
+| `get_portfolio` | Read-only | Returns the local paper ledger in paper mode or the authenticated event-contract portfolio in live mode |
+| `place_order` | Destructive/write | Simulates an immediate fill in paper mode; submits an armed, capped event-contract order in live mode |
+| `amend_order` | Destructive/write | Paper mode has no resting orders; live mode amends an armed, resting event-contract order |
+| `cancel_order` | Destructive/write | Paper mode has no resting orders; live mode state-checks and cancels a resting event-contract order |
 
 Connected MCP clients also receive server-level instructions telling them to
 call `kernel_status` first, distinguish paper from live mode, and never report
 an action as successful unless its structured response contains `ok: true`.
+Until its readiness reporting is updated, confirm live arm state from the
+`arm_live_trading` response rather than from `kernel_status`.
 
 ## Build and run locally
 
@@ -146,9 +170,23 @@ Use the standard MCP configuration shape:
 KALSHI_KERNEL_MODE=paper ./bin/kalshi-kernel
 ```
 
-Paper mode will use a local simulated ledger after that backend is implemented.
-It must never submit an order to Kalshi. Simulated fills will not predict or
-guarantee live fills, liquidity, latency, slippage, fees, or profitability.
+Paper mode uses an in-memory simulated ledger and never submits an order to
+Kalshi. It starts with `$100.00` by default; set
+`KALSHI_PAPER_CASH_DOLLARS` before startup to choose another balance. The
+ledger, positions, idempotency records, and fill journal reset when the process
+exits.
+
+`place_order` fetches a fresh public order-book snapshot and supports only
+immediate, all-or-nothing marketable fills. The requested price must exactly
+equal the current touch and the displayed size must cover the full quantity.
+The simulator uses fixed-point arithmetic, applies the published fee formula,
+records a hash of the book used, and treats `client_order_id` as an idempotency
+key. Because paper orders never rest, `amend_order` and `cancel_order` return
+typed failures.
+
+Every paper response is labeled `simulated: true`. Simulated fills do not
+predict or guarantee live fills, liquidity, latency, slippage, fees, or
+profitability.
 
 ### Live mode
 
@@ -159,12 +197,47 @@ KALSHI_KERNEL_MODE=live
 KALSHI_API_KEY_ID=...
 KALSHI_PRIVATE_KEY_PATH=/absolute/path/to/private-key.pem
 KALSHI_LIVE_TRADING_ACK=I_UNDERSTAND_THIS_TRADES_REAL_MONEY
+
+# Optional startup-only overrides; these are the defaults.
+KALSHI_MAX_ORDER_NOTIONAL_DOLLARS=25.00
+KALSHI_MAX_DAILY_NOTIONAL_DOLLARS=100.00
+KALSHI_MAX_DAILY_ORDERS=200
 ```
 
-These variables currently arm configuration validation only; no live execution
-adapter is connected. Never commit credentials, private keys, or `.env` files.
-Use short-lived credentials where available, a secrets manager in production,
-and an account or subaccount with the least privileges and capital required.
+Startup configuration selects immutable live mode and enables authenticated
+event-contract portfolio reads and cancellation. It does **not** authorize
+place/amend calls. Those calls require a second, process-local MCP action:
+
+```json
+{
+  "acknowledgement": "I_UNDERSTAND_THIS_TRADES_REAL_MONEY",
+  "arm": true
+}
+```
+
+Pass that object to `arm_live_trading`; pass the same object with `arm: false`
+to disarm. Arming is never persisted. `place_order` also requires a stable,
+caller-provided `client_order_id`. Place/amend requests are rejected before
+submission when they exceed the startup-only per-order, UTC-day notional, or
+UTC-day order-count limits. These counters are process-local and reset when the
+process restarts.
+
+> [!WARNING]
+> `cancel_order` is available in configured live mode without the separate
+> `arm_live_trading` step. It verifies that the order is resting before sending
+> the cancellation. Place/amend validate price syntax and notional limits, but
+> the current implementation does not independently compare the requested limit
+> price with a fresh quote. Use exchange-side limits, least-privilege credentials,
+> human review, monitoring, and an independent emergency stop.
+
+Live account reads and writes currently support event contracts only.
+Perpetual-account operations and non-primary subaccounts are unavailable; omit
+`subaccount` or pass `0`. Network failures after a write produce reconciled or
+explicitly indeterminate outcomes rather than blind retries.
+
+Never commit credentials, private keys, or `.env` files. Use short-lived
+credentials where available, a secrets manager in production, and an account
+with only the privileges and capital required.
 
 ## Specification-driven generation
 

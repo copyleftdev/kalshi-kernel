@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title desc">
+  <title id="title">Kernel mark</title>
+  <desc id="desc">A geometric K with a green core.</desc>
+  <path fill="#050D0A" d="M0 0h160v160H0z"/>
+  <path d="M40 32h16v38l42-38h25L74 77l52 51h-25L56 85v43H40z" fill="#FFFFFF"/>
+  <circle cx="56" cy="79" r="8" fill="#00DD94"/>
+</svg>

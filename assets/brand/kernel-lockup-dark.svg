@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 648 160" role="img" aria-labelledby="title desc">
+  <title id="title">Kernel</title>
+  <desc id="desc">A geometric K with a green core followed by the word Kernel.</desc>
+  <path fill="#050D0A" d="M0 0h648v160H0z"/>
+  <g fill="#FFFFFF">
+    <path d="M40 32h16v38l42-38h25L74 77l52 51h-25L56 85v43H40z"/>
+    <path d="M168 44h14v29l29-29h18l-35 34 37 38h-19l-30-32v32h-14z"/>
+    <path d="M246 44h50v13h-36v16h30v13h-30v17h36v13h-50z"/>
+    <path fill-rule="evenodd" d="M315 44h32c20 0 32 10 32 27 0 12-6 21-17 25l20 20h-19l-17-18h-17v18h-14zm14 13v28h17c12 0 19-5 19-14s-7-14-19-14z"/>
+    <path d="M400 44h14l34 47V44h14v72h-13l-35-47v47h-14z"/>
+    <path d="M482 44h50v13h-36v16h30v13h-30v17h36v13h-50z"/>
+    <path d="M551 44h14v59h35v13h-49z"/>
+  </g>
+  <circle cx="56" cy="79" r="8" fill="#00DD94"/>
+</svg>
