@@ -62,7 +62,7 @@ jobs:
         run: |
           mkdir -p dist
           go build -buildvcs=false -trimpath -ldflags="-s -w" -o "dist/kalshi-kernel_${GOOS}_${GOARCH}${{ matrix.extension }}" ./cmd/kalshi-kernel
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: binary-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/*
